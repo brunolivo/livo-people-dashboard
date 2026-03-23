@@ -983,18 +983,24 @@
     .org-card.is-self { border-color:var(--deep-teal); background:#F0FAFB; }
 
     /* Level-View Layout */
-    .lv-wrap { display:flex; flex-direction:column; gap:0; position:relative; }
-    .lv-band { display:flex; align-items:stretch; min-height:160px; position:relative; }
-    .lv-band + .lv-band { border-top: 2px dashed var(--pale-gray); }
-    .lv-sidebar { width:130px; flex-shrink:0; display:flex; flex-direction:column; justify-content:center; align-items:flex-end; padding:16px 14px 16px 0; position:sticky; left:0; z-index:2; background:inherit; }
-    .lv-badge  { font-size:11px; font-weight:800; padding:4px 10px; border-radius:8px; font-family:var(--font-ui); text-align:center; margin-bottom:4px; }
-    .lv-count  { font-size:9px; font-weight:600; color:var(--med-gray); font-family:var(--font-ui); }
-    .lv-cards  { flex:1; display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:16px 16px 16px 14px; }
-    .lv-card   { width:160px; background:#fff; border-radius:12px; border:1.5px solid var(--pale-gray); padding:10px 11px; box-sizing:border-box; display:flex; flex-direction:column; gap:5px; transition:box-shadow .15s, transform .15s; flex-shrink:0; }
+    .lv-wrap      { display:flex; flex-direction:column; position:relative; border:1px solid var(--pale-gray); border-radius:16px; overflow:hidden; box-shadow:0 2px 14px rgba(0,0,0,.06); }
+    .lv-band      { display:flex; align-items:stretch; position:relative; border-bottom:2px solid var(--pale-gray); }
+    .lv-band:last-child { border-bottom:none; }
+    .lv-sidebar   { width:110px; flex-shrink:0; display:flex; flex-direction:column; justify-content:flex-start; align-items:flex-end; padding:18px 12px 18px 0; position:sticky; left:0; z-index:2; background:inherit; border-right:2px solid var(--pale-gray); }
+    .lv-badge     { font-size:13px; font-weight:900; padding:5px 10px; border-radius:9px; font-family:var(--font-ui); text-align:center; margin-bottom:5px; line-height:1.1; }
+    .lv-count     { font-size:9px; font-weight:600; color:var(--med-gray); font-family:var(--font-ui); }
+    .lv-content   { flex:1; display:flex; flex-direction:column; gap:0; padding:16px 16px 16px 18px; min-height:130px; }
+    .lv-groups-wrap { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; }
+    .lv-mgr-group { display:flex; flex-direction:column; align-items:center; }
+    .lv-mgr-label { font-size:8px; font-weight:800; font-family:var(--font-ui); padding:2px 8px; border-radius:5px; white-space:nowrap; margin-bottom:0; text-align:center; }
+    .lv-mgr-vline { width:2px; flex-shrink:0; min-height:12px; }
+    .lv-mgr-cards { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+    .lv-card      { width:155px; background:#fff; border-radius:12px; border:1.5px solid var(--pale-gray); padding:9px 10px 8px; box-sizing:border-box; display:flex; flex-direction:column; gap:4px; transition:box-shadow .15s,transform .15s; flex-shrink:0; }
     .lv-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.09); transform:translateY(-1px); }
     .lv-card.is-self { border-color:var(--deep-teal); background:#F0FAFB; }
-    .lv-mgr-chip { font-size:8px; font-weight:600; color:var(--med-gray); font-family:var(--font-ui); background:var(--bg-cream2); border-radius:4px; padding:1px 5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; display:block; margin-top:1px; }
-    .lv-connector-line { position:absolute; left:130px; right:0; top:0; bottom:0; pointer-events:none; overflow:visible; }
+    .lv-dist-spacer { height:32px; display:flex; align-items:center; justify-content:center; width:100%; margin:0; }
+    .lv-dist-ruler { flex:1; border-top:1.5px dashed rgba(150,150,150,.2); }
+    .lv-dist-label { font-size:8px; font-weight:600; color:var(--med-gray); font-family:var(--font-ui); padding:0 8px; white-space:nowrap; }
     .org-view-toggle { display:inline-flex; border:1px solid var(--pale-gray); border-radius:10px; overflow:hidden; }
     .org-view-toggle button { padding:5px 13px; font-size:10px; font-weight:700; font-family:var(--font-ui); border:none; cursor:pointer; transition:background .15s, color .15s; }
     .org-view-toggle button.active { background:var(--deep-teal); color:#fff; }
@@ -3519,7 +3525,7 @@ let resultsTeamFilter   = 'All';
 let talentMapCollapsed  = false;
 let resultsViewMode     = 'cards';   // 'cards' | 'orgchart'
 let orgChartCollapsed   = new Set(); // memberIds whose children are hidden in org chart
-let orgChartViewMode    = 'tree'; // 'tree' | 'levels'
+let orgChartViewMode    = 'levels'; // 'tree' | 'levels'
 let orgCardExpanded     = new Set(); // memberIds whose detail panel is open
 
 /* ── SUCCESSION STATE ─────────────────────────────────────── */
@@ -4243,94 +4249,135 @@ function renderOrgNode(node, depth) {
 
 function renderOrgLevelView(memberData) {
   const LEVELS = [
-    { key:'L5 — Director+',      short:'L5', label:'Director+' },
-    { key:'L4 — Lead / Manager', short:'L4', label:'Lead / Manager' },
-    { key:'L3 — Senior',         short:'L3', label:'Senior' },
-    { key:'L2 — Mid',            short:'L2', label:'Mid' },
-    { key:'L1 — Junior',         short:'L1', label:'Junior' },
+    { key:'L5 — Director+',      short:'L5', label:'Director+',      num:5 },
+    { key:'L4 — Lead / Manager', short:'L4', label:'Lead / Manager', num:4 },
+    { key:'L3 — Senior',         short:'L3', label:'Senior',         num:3 },
+    { key:'L2 — Mid',            short:'L2', label:'Mid',            num:2 },
+    { key:'L1 — Junior',         short:'L1', label:'Junior',         num:1 },
   ];
 
-  // Map each member to its canonical level key
-  function getCanonLevel(memberId) {
+  function canonLevel(memberId) {
     const lv = (COMP_RECORDS[memberId] || {}).level || '';
     return LEVELS.find(l => lv.startsWith(l.short)) || null;
   }
 
-  // Group members by level, within each group sort by team then name
+  // Bucket every member into a level
   const byLevel = {};
   LEVELS.forEach(l => { byLevel[l.key] = []; });
   memberData.forEach(m => {
-    const lv = getCanonLevel(m.id);
-    if (lv) byLevel[lv.key].push(m);
-    else {
-      // fallback: put unassigned at L1
-      byLevel['L1 — Junior'].push(m);
-    }
-  });
-  LEVELS.forEach(l => {
-    byLevel[l.key].sort((a,b) => (a.team||'').localeCompare(b.team||'') || a.fullName.localeCompare(b.fullName));
+    const lv = canonLevel(m.id);
+    byLevel[lv ? lv.key : 'L1 — Junior'].push(m);
   });
 
-  // Build cards for each level band
-  const bands = LEVELS.filter(l => byLevel[l.key].length > 0).map(lv => {
+  // Helper: render a single card
+  function renderCard(m, lvKey) {
+    const pt   = PLAYER_TYPES[m.playerType] || PLAYER_TYPES.developing;
+    const isMe = m.id === currentUserId;
+    const col  = LEVEL_COLORS[lvKey] || LEVEL_COLORS[''];
+    const cr   = COMP_RECORDS[m.id] || {};
+    const blurStyle = compSalaryBlurred ? 'filter:blur(4px);user-select:none;' : '';
+    return '<div class="lv-card' + (isMe ? ' is-self' : '') + '" style="border-left:3px solid ' + pt.border + ';">'
+      + '<div style="display:flex;align-items:center;gap:6px;">'
+      +   '<div style="width:27px;height:27px;border-radius:50%;background:' + pt.bg + ';border:2px solid ' + pt.border + ';display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:' + pt.text + ';flex-shrink:0;">' + esc(m.firstName[0]) + '</div>'
+      +   '<div style="min-width:0;flex:1;">'
+      +     '<div style="font-size:11px;font-weight:700;color:var(--dark-gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font);letter-spacing:-.2px;">' + esc(m.fullName) + '</div>'
+      +     '<div style="font-size:9px;color:var(--med-gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-ui);">' + esc(m.position) + '</div>'
+      +   '</div>'
+      + '</div>'
+      + '<div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;">'
+      +   '<span style="font-size:8px;font-weight:600;color:var(--deep-teal);background:rgba(16,68,85,.07);border-radius:4px;padding:1px 5px;font-family:var(--font-ui);overflow:hidden;text-overflow:ellipsis;max-width:80px;white-space:nowrap;">' + esc(m.team || '') + '</span>'
+      +   '<span style="font-size:8px;font-weight:800;padding:1px 5px;border-radius:4px;background:' + col.bg + ';color:' + col.text + ';border:1px solid ' + col.border + ';font-family:var(--font-ui);">' + (lvKey.match(/^(L\d)/)||['','?'])[1] + '</span>'
+      +   (keyPositions.has(m.id) ? '<span title="Key Position" style="font-size:9px;">🔑</span>' : '')
+      + '</div>'
+      + '<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:6px;background:' + pt.bg + ';border:1px solid ' + pt.border + ';font-size:8px;font-weight:700;color:' + pt.text + ';font-family:var(--font-ui);">' + pt.icon + ' ' + pt.label + '</span>'
+      + ((roleAssignments[currentUserId]==='super_admin' && cr.salary) ? '<div style="font-size:9px;font-weight:700;color:var(--deep-teal);font-family:var(--font-ui);"><span style="' + blurStyle + '">💰 ' + fmtSalary(cr.salary) + '</span></div>' : '')
+      + '</div>';
+  }
+
+  // Build bands from L5 down to L1
+  const activeLevels = LEVELS.filter(l => byLevel[l.key].length > 0);
+
+  const bands = activeLevels.map((lv, bandIdx) => {
     const col     = LEVEL_COLORS[lv.key] || LEVEL_COLORS[''];
     const members = byLevel[lv.key];
 
-    const cards = members.map(m => {
-      const pt     = PLAYER_TYPES[m.playerType] || PLAYER_TYPES.developing;
-      const isMe   = m.id === currentUserId;
-      const sup    = m.supervisorId ? TEAM_MEMBERS.find(x => x.id === m.supervisorId) : null;
-      const supLv  = sup ? getCanonLevel(sup.id) : null;
-      const cr     = COMP_RECORDS[m.id] || {};
-      const blurStyle = compSalaryBlurred ? 'filter:blur(4px);user-select:none;' : '';
+    // Group by direct manager
+    const groupMap = {};  // supervisorId → [members]
+    const topLevel = [];
+    members.forEach(m => {
+      if (!m.supervisorId) { topLevel.push(m); return; }
+      if (!groupMap[m.supervisorId]) groupMap[m.supervisorId] = [];
+      groupMap[m.supervisorId].push(m);
+    });
 
-      return '<div class="lv-card' + (isMe ? ' is-self' : '') + '" style="border-left:3px solid ' + pt.border + ';border-top-color:' + col.border + ';" data-id="' + m.id + '">'
-        + '<div style="display:flex;align-items:center;gap:6px;">'
-        +   '<div style="width:26px;height:26px;border-radius:50%;background:' + pt.bg + ';border:2px solid ' + pt.border + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:' + pt.text + ';flex-shrink:0;">' + esc(m.firstName[0]) + '</div>'
-        +   '<div style="min-width:0;flex:1;">'
-        +     '<div style="font-size:11px;font-weight:700;color:var(--dark-gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font);letter-spacing:-0.2px;">' + esc(m.fullName) + '</div>'
-        +     '<div style="font-size:9px;color:var(--med-gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-ui);">' + esc(m.position) + '</div>'
-        +   '</div>'
-        + '</div>'
-        + '<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">'
-        +   '<span style="font-size:8px;font-weight:600;color:' + col.text + ';background:' + col.bg + ';border:1px solid ' + col.border + ';border-radius:4px;padding:1px 5px;font-family:var(--font-ui);">' + esc(m.team || '') + '</span>'
-        +   (keyPositions.has(m.id) ? '<span style="font-size:9px;" title="Key Position">🔑</span>' : '')
-        + '</div>'
-        + (sup ? '<span class="lv-mgr-chip" title="Reports to: ' + esc(sup.fullName) + '">↑ ' + esc(sup.firstName) + (supLv ? ' · ' + supLv.short : '') + '</span>' : '<span class="lv-mgr-chip" style="color:var(--deep-teal);">— Top Level</span>')
-        + '<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:6px;background:' + pt.bg + ';border:1px solid ' + pt.border + ';font-size:8px;font-weight:700;color:' + pt.text + ';font-family:var(--font-ui);">' + pt.icon + ' ' + pt.label + '</span>'
-        + ((roleAssignments[currentUserId]==='super_admin' && cr.salary) ? '<div style="font-size:9px;font-weight:700;color:var(--deep-teal);font-family:var(--font-ui);"><span style="' + blurStyle + '">💰 ' + fmtSalary(cr.salary) + '</span></div>' : '')
+    // Sort each group alphabetically
+    topLevel.sort((a,b) => a.fullName.localeCompare(b.fullName));
+    Object.values(groupMap).forEach(g => g.sort((a,b) => a.fullName.localeCompare(b.fullName)));
+
+    // Sort groups: by manager's full name for deterministic order
+    const sortedGroups = Object.entries(groupMap)
+      .sort(([aId],[bId]) => {
+        const aN = (TEAM_MEMBERS.find(m=>m.id===aId)||{}).fullName||'';
+        const bN = (TEAM_MEMBERS.find(m=>m.id===bId)||{}).fullName||'';
+        return aN.localeCompare(bN);
+      });
+
+    // Calculate level gap for connector line height
+    // connector grows taller when the manager is many levels above
+    const renderGroup = (supId, grpMembers) => {
+      const sup     = supId ? TEAM_MEMBERS.find(m => m.id === supId) : null;
+      const supLvN  = supId ? getMemberLevelNum(supId) : 0;
+      const thisLvN = lv.num;
+      const gap     = supLvN > 0 ? Math.max(1, supLvN - thisLvN) : 1;
+      const lineH   = 10 + gap * 14; // 24px for 1 level, 38px for 2, etc.
+      const supCol  = supId ? (LEVEL_COLORS[Object.keys(LEVEL_NUM).find(k => LEVEL_NUM[k] === supLvN) || ''] || col) : { bar: '#ccc', bg: '#f5f5f5', text: '#888', border:'#ddd' };
+
+      return '<div class="lv-mgr-group">'
+        + (sup
+            ? '<div class="lv-mgr-label" style="background:' + supCol.bg + ';color:' + supCol.text + ';border:1px solid ' + supCol.border + ';">↑ ' + esc(sup.firstName) + ' <span style="opacity:.6;">' + (Object.keys(LEVEL_NUM).find(k => LEVEL_NUM[k]===supLvN) || '').match(/^(L\d)/)?.[1] + '</span></div>'
+            : '<div class="lv-mgr-label" style="background:#f5f5f5;color:#888;border:1px solid #e0e0e0;">— Top</div>'
+          )
+        + '<div class="lv-mgr-vline" style="background:' + (sup ? supCol.bar : '#ccc') + ';height:' + lineH + 'px;opacity:.5;"></div>'
+        + '<div class="lv-mgr-cards">' + grpMembers.map(m => renderCard(m, lv.key)).join('') + '</div>'
         + '</div>';
-    }).join('');
+    };
 
-    // Band background gets lighter as level goes down (subtle depth)
-    const bandBg = lv.key === 'L5 — Director+' ? col.bg
-                 : lv.key === 'L4 — Lead / Manager' ? 'rgba(255,251,235,.4)'
-                 : lv.key === 'L3 — Senior'         ? 'rgba(236,253,245,.3)'
-                 : lv.key === 'L2 — Mid'             ? 'rgba(239,246,255,.25)'
-                 : '#fff';
+    const groupsHtml =
+      (topLevel.length ? renderGroup(null, topLevel) : '')
+      + sortedGroups.map(([supId, grpMembers]) => renderGroup(supId, grpMembers)).join('');
 
-    return '<div class="lv-band" style="background:' + bandBg + ';">'
-      + '<div class="lv-sidebar">'
-      +   '<div class="lv-badge" style="background:' + col.bg + ';color:' + col.text + ';border:1.5px solid ' + col.border + ';">' + lv.short + '<div style="font-size:8px;font-weight:600;opacity:.8;">' + lv.label + '</div></div>'
-      +   '<div class="lv-count">' + members.length + ' ' + (members.length === 1 ? 'person' : 'people') + '</div>'
-      + '</div>'
-      + '<div class="lv-cards">' + cards + '</div>'
+    // Band background tint
+    const bandBg = lv.key === 'L5 — Director+' ? 'rgba(245,243,255,.7)'
+      : lv.key === 'L4 — Lead / Manager'        ? 'rgba(255,251,235,.6)'
+      : lv.key === 'L3 — Senior'                ? 'rgba(236,253,245,.5)'
+      : lv.key === 'L2 — Mid'                   ? 'rgba(239,246,255,.4)'
+      : 'rgba(248,250,252,.5)';
+
+    // Distance spacer ABOVE this band (between this and the next-higher band)
+    // = 1 per level step, always equal since levels are consecutive
+    const spacerHtml = bandIdx > 0
+      ? '<div class="lv-dist-spacer"><div class="lv-dist-ruler"></div><div class="lv-dist-label" style="color:' + col.text + ';">▲ 1 level</div><div class="lv-dist-ruler"></div></div>'
+      : '';
+
+    return spacerHtml
+      + '<div class="lv-band" style="background:' + bandBg + ';">'
+      +   '<div class="lv-sidebar" style="background:' + bandBg + ';">'
+      +     '<div class="lv-badge" style="background:' + col.bg + ';color:' + col.text + ';border:2px solid ' + col.border + ';font-size:14px;">'
+      +       lv.short
+      +       '<div style="font-size:8px;font-weight:700;opacity:.75;letter-spacing:0;">' + lv.label + '</div>'
+      +     '</div>'
+      +     '<div class="lv-count">' + members.length + ' ' + (members.length === 1 ? 'person' : 'people') + '</div>'
+      +   '</div>'
+      +   '<div class="lv-content"><div class="lv-groups-wrap">' + groupsHtml + '</div></div>'
       + '</div>';
   });
 
-  // Distance legend on the right side
-  const legend = '<div style="position:absolute;right:0;top:0;bottom:0;width:6px;display:flex;flex-direction:column;">'
-    + LEVELS.filter(l => byLevel[l.key].length > 0).map((lv,i,arr) => {
-        const col = LEVEL_COLORS[lv.key] || LEVEL_COLORS[''];
-        const h   = Math.round(100 / arr.length);
-        return '<div style="flex:1;background:' + col.bar + ';opacity:.45;' + (i===0?'border-radius:0 6px 0 0;':'') + (i===arr.length-1?'border-radius:0 0 6px 0;':'') + '"></div>';
-      }).join('')
+  // Right depth-bar
+  const rightBar = '<div style="position:absolute;right:0;top:0;bottom:0;width:5px;display:flex;flex-direction:column;pointer-events:none;">'
+    + activeLevels.map((lv,i,a) => '<div style="flex:1;background:' + (LEVEL_COLORS[lv.key]||LEVEL_COLORS['']).bar + ';opacity:.35;' + (i===0?'border-radius:0 6px 0 0;':'') + (i===a.length-1?'border-radius:0 0 6px 0;':'') + '"></div>').join('')
     + '</div>';
 
-  return '<div class="lv-wrap" style="position:relative;border:1px solid var(--pale-gray);border-radius:16px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.06);">'
-    + bands.join('')
-    + legend
-    + '</div>';
+  return '<div class="lv-wrap" style="position:relative;">' + bands.join('') + rightBar + '</div>';
 }
 
 function renderOrgChart(allMemberData) {
