@@ -1651,6 +1651,12 @@
       <button class="app-nav-item" id="nav-results" data-tab="results" data-tooltip="Results" onclick="switchTab('results')" style="display:none;">
         <span class="app-nav-icon">📊</span>
       </button>
+      <button class="app-nav-item" id="nav-talent" data-tab="talent" data-tooltip="Talent Map" onclick="switchTab('talent')" style="display:none;">
+        <span class="app-nav-icon">🗺️</span>
+      </button>
+      <button class="app-nav-item" id="nav-orgchart" data-tab="orgchart" data-tooltip="Org Chart" onclick="switchTab('orgchart')" style="display:none;">
+        <span class="app-nav-icon">🌲</span>
+      </button>
       <div class="app-nav-divider"></div>
       <!-- Permission-gated -->
       <button class="app-nav-item" id="nav-admin" data-tab="admin" data-tooltip="Admin" onclick="switchTab('admin')" style="display:none;">
@@ -1771,6 +1777,16 @@
     <!-- ── Compensation Panel ──────────────────────────────────── -->
     <div class="panel" id="panel-comp">
       <div id="comp-content"></div>
+    </div>
+
+    <!-- ── Talent Map Panel ─────────────────────────────────────── -->
+    <div class="panel" id="panel-talent">
+      <div id="talent-map-content"></div>
+    </div>
+
+    <!-- ── Org Chart Panel ───────────────────────────────────────── -->
+    <div class="panel" id="panel-orgchart">
+      <div id="orgchart-content"></div>
     </div>
 
     <!-- ── Admin Panel ─────────────────────────────────────────── -->
@@ -2390,6 +2406,12 @@ function updateIdentity(userId) {
   // Results nav item — visible for manager and super_admin
   const navResults = document.getElementById('nav-results');
   if (navResults) navResults.style.display = canSeeResults ? '' : 'none';
+  // Talent Map nav — visible for manager and super_admin
+  const navTalent = document.getElementById('nav-talent');
+  if (navTalent) navTalent.style.display = canSeeResults ? '' : 'none';
+  // Org Chart nav — visible for manager and super_admin
+  const navOrgchart = document.getElementById('nav-orgchart');
+  if (navOrgchart) navOrgchart.style.display = canSeeResults ? '' : 'none';
   // If viewing results but lost access, fall back to Company OKRs
   if (currentOkrSub === 'results' && !canSeeResults) switchOkrSub('okrs');
 
@@ -2933,6 +2955,8 @@ function switchTab(tabName) {
   if (tabName === 'admin' && permissions.canViewAdminPanel) { renderAdminStats(); renderAdminTable(); renderAdminBudget(); renderAdminBands(); renderAdminCompSettings(); }
   if (tabName === 'succession') renderSuccessionPage();
   if (tabName === 'comp')       renderCompPage();
+  if (tabName === 'talent')     renderTalentMapPage();
+  if (tabName === 'orgchart')   renderOrgChartPage();
   refreshStats();
 }
 
@@ -3525,7 +3549,7 @@ async function loadFromSupabase() {
     const { data: kplay } = await supa.from('key_players').select('*');
     if (kplay) { keyPlayers.clear(); kplay.forEach(k => keyPlayers.add(k.member_id)); }
     const { data: goals } = await supa.from('company_goals').select('*, key_results(*)').order('sort_order');
-    if (goals && goals.length) { data.objectives.length=0; goals.forEach(g => data.objectives.push({ id:g.id, title:g.title, tagline:g.tagline||'', owner:g.owner||'', status:g.status||'on_track', krs:(g.key_results||[]).sort((a,b)=>a.sort_order-b.sort_order).map(kr=>({ id:kr.id, text:kr.text, current:kr.current_val||0, target:kr.target||100, unit:kr.unit||'%', status:kr.status||'on_track' })) })); }
+    if (goals && goals.length) { data.objectives.length=0; goals.forEach((g,idx) => data.objectives.push({ id:g.id, title:g.title, tagline:g.tagline||'', owner:g.owner||'', status:g.status||'on_track', color:OBJ_COLORS[idx]||OBJ_COLORS[0], accent:OBJ_ACCENTS[idx]||OBJ_ACCENTS[0], krs:(g.key_results||[]).sort((a,b)=>a.sort_order-b.sort_order).map(kr=>({ id:kr.id, text:kr.text, current:kr.current_val||0, target:kr.target||100, unit:kr.unit||'%', status:kr.status||'on_track' })) })); }
     console.log('%c✅ Livo People — synced from Supabase', 'color:#104455;font-weight:bold');
   } catch(e) { console.warn('Supabase load error (using local data):', e); }
 }
@@ -5700,6 +5724,47 @@ function renderCompPage() {
     ${mainContent}
     ${guardrails}
   </div>`;
+}
+
+/* ── Talent Map standalone page ───────────────────────────── */
+function renderTalentMapPage() {
+  const container = document.getElementById('talent-map-content');
+  if (!container) return;
+  const memberData = getResultsMemberData();
+  const teams = ['All', ...new Set(TEAM_MEMBERS.map(m => m.team))];
+  const filterChips = teams.map(t =>
+    `<button class="filter-chip${resultsTeamFilter === t ? ' active' : ''}" onclick="setResultsFilter('${t}');renderTalentMapPage();">${esc(t)}</button>`
+  ).join('');
+  const filtered = resultsTeamFilter === 'All' ? memberData : memberData.filter(m => m.team === resultsTeamFilter);
+  container.innerHTML = `
+    <div style="padding:24px 28px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <div>
+          <h2 style="font-family:var(--font);font-size:20px;font-weight:800;color:var(--dark-gray);margin:0 0 4px;">Talent Map</h2>
+          <p style="font-size:12px;color:var(--med-gray);font-family:var(--font-ui);margin:0;">Performance × Values 2×2 matrix — Q1 2026</p>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+        <span style="font-size:12px;font-weight:600;color:var(--med-gray);font-family:var(--font-ui);">Filter by team:</span>
+        <div class="filter-chips-row" style="margin:0;">${filterChips}</div>
+      </div>
+      ${renderTalentMapSVG(filtered)}
+    </div>`;
+}
+
+/* ── Org Chart standalone page ─────────────────────────────── */
+function renderOrgChartPage() {
+  const container = document.getElementById('orgchart-content');
+  if (!container) return;
+  const memberData = getResultsMemberData();
+  container.innerHTML = `
+    <div style="padding:24px 28px;">
+      <div style="margin-bottom:18px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:800;color:var(--dark-gray);margin:0 0 4px;">Org Chart</h2>
+        <p style="font-size:12px;color:var(--med-gray);font-family:var(--font-ui);margin:0;">Full organisation view — Q1 2026</p>
+      </div>
+      ${renderOrgChart(memberData)}
+    </div>`;
 }
 
 /* ── Main page render ─────────────────────────────────────── */
