@@ -1631,7 +1631,7 @@
       <div class="login-error" id="login-error">Incorrect email or password. Please try again.</div>
       <div class="login-forgot"><a onclick="showForgotPassword()">Forgot your password?</a></div>
       <div class="login-hint">Building the Future of Healthcare</div>
-      <div class="login-demo-hint">Use your @getlivo.com email and password</div>
+      <div class="login-demo-hint">Enter any team email or click Sign In to enter as <span onclick="document.getElementById('login-email').value='carlos@getlivo.com'">Carlos</span></div>
     </div>
     <!-- Reset Password view (hidden by default) -->
     <div id="reset-view" style="display:none; width:100%;">
@@ -2413,24 +2413,10 @@ async function doSetNewPassword() {
   history.replaceState(null, '', window.location.pathname);
   setTimeout(() => showLoginForm(), 2500);
 }
-async function doLogin() {
+function doLogin() {
   const email  = (document.getElementById('login-email').value || '').trim().toLowerCase();
-  const pw     = document.getElementById('login-pw').value || '';
-  const errEl  = document.getElementById('login-error');
-  errEl.style.display = 'none';
-
-  // Authenticate via Supabase Auth
-  if (supa) {
-    const { error } = await supa.auth.signInWithPassword({ email, password: pw });
-    if (error) {
-      errEl.textContent = 'Incorrect email or password. Please try again.';
-      errEl.style.display = '';
-      return;
-    }
-  }
-
-  // Match team member by email
   const member = TEAM_MEMBERS.find(m => m.email && m.email.toLowerCase() === email) || TEAM_MEMBERS[0];
+  // Hide screen immediately — demo mode, no auth gate
   document.getElementById('login-screen').style.display = 'none';
   currentUserId = member.id;
   permissions   = getPermissions(currentUserId);
@@ -3686,7 +3672,7 @@ async function seedToSupabase() {
     await supa.from('team_members').upsert({ id:m.id, first_name:m.firstName, full_name:m.fullName, email:m.email||'', team:m.team||'', position:m.position||'', supervisor_id:m.supervisorId||null });
   }
   await supa.from('role_assignments').upsert(Object.entries(ROLE_ASSIGNMENTS).map(([k,v])=>({ member_id:k, role:v })));
-  await supa.from('comp_records').upsert(Object.entries(COMP_RECORDS).map(([k,v])=>({ member_id:k, salary:v.salary||0, target_bonus:v.targetBonus||0, cobee:v.cobee||0, cobee_alloc:v.cobeeAlloc||'', esop_shares:v.esopShares||0, esop_share_price:v.esopSharePrice||1.00, perf_rating:v.perfRating||'unrated', level:v.level||'', track:v.track||'' })));
+  await supa.from('comp_records').upsert(Object.entries(COMP_RECORDS).map(([k,v])=>({ member_id:k, salary:v.salary||0, target_bonus:v.targetBonus||0, cobee:v.cobee||0, cobee_alloc:v.cobeeAlloc||'', esop_shares:v.esopShares||0, esop_share_price:v.esopSharePrice||1.00, perf_rating:v.perfRating||'unrated', level:v.level||'', track:v.track||'', contract_type:v.contractType||'' })));
   await supa.from('salary_bands').upsert(SALARY_BANDS.map((b,i)=>({ level:b.level, min_salary:b.min, mid_salary:b.mid, max_salary:b.max, bonus_target:b.bonusTarget||0, esop_eligible:b.esopEligible||false, sort_order:i+1 })));
   await supa.from('budget_types').upsert(budgetData.types.map(t=>({ id:t.id, label:t.label, icon:t.icon||'', q1:t.q1||0, q2:t.q2||0, q3:t.q3||0, q4:t.q4||0 })));
   await supa.from('budget_areas').upsert(budgetData.areas.map(a=>({ team:a.team, merit:a.merit||0, promo:a.promo||0, market:a.market||0 })));
@@ -5326,7 +5312,7 @@ function saveAddCompHistory(memberId) {
   compHistory.unshift(_he);
   supaSync('comp_history', { id:_he.id, member_id:memberId, ts:_he.ts, type:tp, field:f, old_val:o, new_val:n, note:t, changed_by:currentUserId });
   const _crSave = COMP_RECORDS[memberId];
-  if (_crSave) supaSync('comp_records', { member_id:memberId, salary:_crSave.salary||0, target_bonus:_crSave.targetBonus||0, cobee:_crSave.cobee||0, esop_shares:_crSave.esopShares||0, esop_share_price:_crSave.esopSharePrice||1.00, perf_rating:_crSave.perfRating||'unrated', perf_rating_override:_crSave.perfRatingOverride||false, level:_crSave.level||'', track:_crSave.track||'', contract_type:_crSave.contractType||'' });
+  if (_crSave) supaSync('comp_records', { member_id:memberId, salary:_crSave.salary||0, target_bonus:_crSave.targetBonus||0, cobee:_crSave.cobee||0, cobee_alloc:_crSave.cobeeAlloc||'', esop_shares:_crSave.esopShares||0, esop_share_price:_crSave.esopSharePrice||1.00, perf_rating:_crSave.perfRating||'unrated', perf_rating_override:_crSave.perfRatingOverride||false, level:_crSave.level||'', track:_crSave.track||'', contract_type:_crSave.contractType||'' });
   delete compPeopleAddingHistory[memberId];
   _renderActivePeopleView();
 }
@@ -5348,7 +5334,7 @@ function updateCompField(memberId, field, newValue, label) {
   if (field === 'perfRating') cr.perfRatingOverride = true;
   const _chEntry = { id:'ch-'+Date.now(), memberId, ts:new Date().toISOString().slice(0,10), type:'field_edit', field:label||field, oldVal:String(oldVal), newVal:String(newValue), note:'', changedBy:currentUserId };
   compHistory.unshift(_chEntry);
-  supaSync('comp_records', { member_id:memberId, salary:cr.salary||0, target_bonus:cr.targetBonus||0, cobee:cr.cobee||0, esop_shares:cr.esopShares||0, esop_share_price:cr.esopSharePrice||1.00, perf_rating:cr.perfRating||'unrated', perf_rating_override:cr.perfRatingOverride||false, level:cr.level||'', track:cr.track||'', contract_type:cr.contractType||'' });
+  supaSync('comp_records', { member_id:memberId, salary:cr.salary||0, target_bonus:cr.targetBonus||0, cobee:cr.cobee||0, cobee_alloc:cr.cobeeAlloc||'', esop_shares:cr.esopShares||0, esop_share_price:cr.esopSharePrice||1.00, perf_rating:cr.perfRating||'unrated', perf_rating_override:cr.perfRatingOverride||false, level:cr.level||'', track:cr.track||'', contract_type:cr.contractType||'' });
   supaSync('comp_history', { id:_chEntry.id, member_id:memberId, ts:_chEntry.ts, type:_chEntry.type, field:_chEntry.field, old_val:_chEntry.oldVal, new_val:_chEntry.newVal, note:'', changed_by:currentUserId });
   const _activeComp = document.querySelector('.panel.active');
   if (_activeComp && _activeComp.id === 'panel-admin') renderAdminTable();
