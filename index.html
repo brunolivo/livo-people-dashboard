@@ -1651,12 +1651,6 @@
       <button class="app-nav-item" id="nav-results" data-tab="results" data-tooltip="Results" onclick="switchTab('results')" style="display:none;">
         <span class="app-nav-icon">📊</span>
       </button>
-      <button class="app-nav-item" id="nav-talent" data-tab="talent" data-tooltip="Talent Map" onclick="switchTab('talent')" style="display:none;">
-        <span class="app-nav-icon">🗺️</span>
-      </button>
-      <button class="app-nav-item" id="nav-orgchart" data-tab="orgchart" data-tooltip="Org Chart" onclick="switchTab('orgchart')" style="display:none;">
-        <span class="app-nav-icon">🌲</span>
-      </button>
       <div class="app-nav-divider"></div>
       <!-- Permission-gated -->
       <button class="app-nav-item" id="nav-admin" data-tab="admin" data-tooltip="Admin" onclick="switchTab('admin')" style="display:none;">
@@ -2406,13 +2400,7 @@ function updateIdentity(userId) {
   // Results nav item — visible for manager and super_admin
   const navResults = document.getElementById('nav-results');
   if (navResults) navResults.style.display = canSeeResults ? '' : 'none';
-  // Talent Map nav — visible for manager and super_admin
-  const navTalent = document.getElementById('nav-talent');
-  if (navTalent) navTalent.style.display = canSeeResults ? '' : 'none';
-  // Org Chart nav — visible for manager and super_admin
-  const navOrgchart = document.getElementById('nav-orgchart');
-  if (navOrgchart) navOrgchart.style.display = canSeeResults ? '' : 'none';
-  // If viewing results but lost access, fall back to Company OKRs
+// If viewing results but lost access, fall back to Company OKRs
   if (currentOkrSub === 'results' && !canSeeResults) switchOkrSub('okrs');
 
   // If we were on admin/comp tab but lost access, go back to OKRs hub
@@ -2955,9 +2943,7 @@ function switchTab(tabName) {
   if (tabName === 'admin' && permissions.canViewAdminPanel) { renderAdminStats(); renderAdminTable(); renderAdminBudget(); renderAdminBands(); renderAdminCompSettings(); }
   if (tabName === 'succession') renderSuccessionPage();
   if (tabName === 'comp')       renderCompPage();
-  if (tabName === 'talent')     renderTalentMapPage();
-  if (tabName === 'orgchart')   renderOrgChartPage();
-  refreshStats();
+refreshStats();
 }
 
 document.querySelectorAll('.tab').forEach(btn => {
