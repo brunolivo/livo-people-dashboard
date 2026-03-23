@@ -5960,7 +5960,7 @@ function renderAdminTable() {
     m.fullName.toLowerCase().includes(searchVal) ||
     m.position.toLowerCase().includes(searchVal) ||
     m.team.toLowerCase().includes(searchVal)
-  );
+  ).sort((a, b) => a.fullName.localeCompare(b.fullName));
 
   const perfOptions  = [
     ...Object.entries(PLAYER_TYPES).filter(([k])=>k!=='unrated').map(([k,pt])=>({ value:k, label:pt.icon+' '+pt.label })),
