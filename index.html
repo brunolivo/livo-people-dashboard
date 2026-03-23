@@ -2755,6 +2755,8 @@ function renderEdit() {
 ═══════════════════════════════════════════════════════════════ */
 function updateObj(oi, field, val) {
   data.objectives[oi][field] = val;
+  const g = data.objectives[oi];
+  supaSync('company_goals', { id:g.id, title:g.title, tagline:g.tagline||'', owner:g.owner||'', status:g.status||'on_track', sort_order:oi });
 }
 
 function updateKR(oi, ki, field, val) {
@@ -2767,25 +2769,32 @@ function updateKR(oi, ki, field, val) {
   const hdr = document.getElementById('header-pct-' + oi);
   if (hdr) hdr.textContent = computePct(data.objectives[oi].krs) + '%';
   refreshStats();
+  supaSync('key_results', { id:kr.id, goal_id:data.objectives[oi].id, text:kr.text, current_val:kr.current||0, target:kr.target||100, unit:kr.unit||'%', status:kr.status||'on_track', sort_order:ki });
 }
 
 function addKR(oi) {
-  data.objectives[oi].krs.push({ id: 'kr-new-' + Date.now(), text: '', current: 0, target: 100, unit: '%' });
+  const newKR = { id: 'kr-new-' + Date.now(), text: '', current: 0, target: 100, unit: '%' };
+  data.objectives[oi].krs.push(newKR);
+  supaSync('key_results', { id:newKR.id, goal_id:data.objectives[oi].id, text:'', current_val:0, target:100, unit:'%', status:'on_track', sort_order:data.objectives[oi].krs.length-1 });
   renderEdit();
 }
 
 function removeKR(oi, ki) {
+  const krId = data.objectives[oi].krs[ki].id;
   data.objectives[oi].krs.splice(ki, 1);
+  supaDelete('key_results', 'id', krId);
   renderEdit();
 }
 
 function addObj() {
   const i = data.objectives.length;
-  data.objectives.push({
+  const newObj = {
     id: 'O' + (i + 1), color: colorForIndex(i), accent: accentForIndex(i),
     title: 'New Objective', tagline: '', parentId: null,
     krs: [{ id: 'kr-new-' + Date.now(), text: '', current: 0, target: 100, unit: '%' }]
-  });
+  };
+  data.objectives.push(newObj);
+  supaSync('company_goals', { id:newObj.id, title:newObj.title, tagline:'', owner:'', status:'on_track', sort_order:i });
   renderEdit();
   setTimeout(() => {
     const cards = document.querySelectorAll('.edit-card');
@@ -2795,8 +2804,10 @@ function addObj() {
 
 function removeObj(oi) {
   if (data.objectives.length <= 1) return;
+  const objId = data.objectives[oi].id;
   data.objectives.splice(oi, 1);
   reassignIds();
+  supaDelete('company_goals', 'id', objId);
   renderEdit();
 }
 
@@ -3514,9 +3525,7 @@ async function loadFromSupabase() {
     const { data: kplay } = await supa.from('key_players').select('*');
     if (kplay) { keyPlayers.clear(); kplay.forEach(k => keyPlayers.add(k.member_id)); }
     const { data: goals } = await supa.from('company_goals').select('*, key_results(*)').order('sort_order');
-    if (goals && goals.length) { COMPANY_GOALS.length=0; goals.forEach(g => COMPANY_GOALS.push({ id:g.id, title:g.title, tagline:g.tagline||'', owner:g.owner||'', status:g.status||'on_track', krs:(g.key_results||[]).sort((a,b)=>a.sort_order-b.sort_order).map(kr=>({ id:kr.id, text:kr.text, current:kr.current_val||0, target:kr.target||100, unit:kr.unit||'%', status:kr.status||'on_track' })) })); }
-    const { data: agoals } = await supa.from('area_goals').select('*, area_key_results(*)');
-    if (agoals && agoals.length) { AREA_GOALS.length=0; agoals.forEach(g => AREA_GOALS.push({ id:g.id, title:g.title, tagline:g.tagline||'', area:g.area||'', ownerId:g.owner_id||null, status:g.status||'on_track', krs:(g.area_key_results||[]).map(kr=>({ id:kr.id, text:kr.text, current:kr.current_val||0, target:kr.target||100, unit:kr.unit||'%', status:kr.status||'on_track' })) })); }
+    if (goals && goals.length) { data.objectives.length=0; goals.forEach(g => data.objectives.push({ id:g.id, title:g.title, tagline:g.tagline||'', owner:g.owner||'', status:g.status||'on_track', krs:(g.key_results||[]).sort((a,b)=>a.sort_order-b.sort_order).map(kr=>({ id:kr.id, text:kr.text, current:kr.current_val||0, target:kr.target||100, unit:kr.unit||'%', status:kr.status||'on_track' })) })); }
     console.log('%c✅ Livo People — synced from Supabase', 'color:#104455;font-weight:bold');
   } catch(e) { console.warn('Supabase load error (using local data):', e); }
 }
@@ -3535,13 +3544,9 @@ async function seedToSupabase() {
   await supa.from('budget_areas').upsert(budgetData.areas.map(a=>({ team:a.team, merit:a.merit||0, promo:a.promo||0, market:a.market||0 })));
   const kpRows=[...keyPositions].map(id=>({member_id:id})); if(kpRows.length) await supa.from('key_positions').upsert(kpRows);
   const kplayRows=[...keyPlayers].map(id=>({member_id:id})); if(kplayRows.length) await supa.from('key_players').upsert(kplayRows);
-  for (const g of COMPANY_GOALS) {
-    await supa.from('company_goals').upsert({ id:g.id, title:g.title, tagline:g.tagline||'', owner:g.owner||'', status:g.status||'on_track', sort_order:COMPANY_GOALS.indexOf(g) });
+  for (const g of data.objectives) {
+    await supa.from('company_goals').upsert({ id:g.id, title:g.title, tagline:g.tagline||'', owner:g.owner||'', status:g.status||'on_track', sort_order:data.objectives.indexOf(g) });
     if (g.krs) await supa.from('key_results').upsert(g.krs.map((kr,i)=>({ id:kr.id, goal_id:g.id, text:kr.text, current_val:kr.current||0, target:kr.target||100, unit:kr.unit||'%', status:kr.status||'on_track', sort_order:i })));
-  }
-  for (const g of AREA_GOALS) {
-    await supa.from('area_goals').upsert({ id:g.id, title:g.title, tagline:g.tagline||'', area:g.area||'', owner_id:g.ownerId||null, status:g.status||'on_track' });
-    if (g.krs) await supa.from('area_key_results').upsert(g.krs.map(kr=>({ id:kr.id, area_goal_id:g.id, text:kr.text, current_val:kr.current||0, target:kr.target||100, unit:kr.unit||'%', status:kr.status||'on_track' })));
   }
   console.log('%c🌱 Livo People — seeded to Supabase', 'color:#059669;font-weight:bold');
 }
