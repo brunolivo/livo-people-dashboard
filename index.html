@@ -1255,8 +1255,8 @@
   /* ── Comp People Table ───────────────────────────────────────── */
   .comp-people-table { border:1px solid var(--pale-gray); border-radius:16px; overflow:hidden; box-shadow:0 2px 14px rgba(0,0,0,.06); }
   .comp-people-header { display:grid; grid-template-columns:1.8fr 1.2fr 1fr 1.2fr 1fr 1fr 0.7fr 0.7fr 0.7fr 0.7fr 0.8fr 1fr 1.1fr; padding:10px 16px; background:linear-gradient(135deg,#F5FAF2,var(--bg-cream2)); font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--med-gray); border-bottom:1px solid var(--pale-gray); }
-  .admin-unified-header { display:grid; grid-template-columns:2fr 1.4fr 0.9fr 1fr 0.9fr 0.9fr 0.9fr 0.7fr 0.6fr 0.6fr 0.6fr 0.9fr 1fr 0.4fr 0.4fr; padding:10px 16px; background:linear-gradient(135deg,#F5FAF2,var(--bg-cream2)); font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--med-gray); border-bottom:1px solid var(--pale-gray); font-family:var(--font-ui); }
-  .admin-unified-row { display:grid; grid-template-columns:2fr 1.4fr 0.9fr 1fr 0.9fr 0.9fr 0.9fr 0.7fr 0.6fr 0.6fr 0.6fr 0.9fr 1fr 0.4fr 0.4fr; align-items:center; padding:10px 16px; border-bottom:1px solid rgba(216,216,216,.55); transition:background var(--transition); }
+  .admin-unified-header { display:grid; grid-template-columns:2fr 1.4fr 0.9fr 1fr 0.9fr 1.1fr 0.9fr 0.9fr 0.7fr 0.6fr 0.6fr 0.6fr 0.9fr 1fr 0.4fr 0.4fr; padding:10px 16px; background:linear-gradient(135deg,#F5FAF2,var(--bg-cream2)); font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--med-gray); border-bottom:1px solid var(--pale-gray); font-family:var(--font-ui); }
+  .admin-unified-row { display:grid; grid-template-columns:2fr 1.4fr 0.9fr 1fr 0.9fr 1.1fr 0.9fr 0.9fr 0.7fr 0.6fr 0.6fr 0.6fr 0.9fr 1fr 0.4fr 0.4fr; align-items:center; padding:10px 16px; border-bottom:1px solid rgba(216,216,216,.55); transition:background var(--transition); }
   .admin-unified-row:hover { background:#F7FBF4; }
   .comp-people-row { display:grid; grid-template-columns:1.8fr 1.2fr 1fr 1.2fr 1fr 1fr 0.7fr 0.7fr 0.7fr 0.7fr 0.8fr 1fr 1.1fr; align-items:center; padding:10px 16px; border-bottom:1px solid rgba(216,216,216,.55); transition:background var(--transition); }
   .comp-people-row:last-child { border-bottom:none; }
@@ -6064,7 +6064,12 @@ function renderAdminTable() {
         <input class="comp-text-input" type="text" value="${esc(m.position)}" placeholder="Title…" onchange="updateCompMemberField('${m.id}','position',this.value,'Title')" onclick="event.stopPropagation()">
         <!-- 5. Area -->
         <select class="comp-select-sm" onchange="updateCompMemberField('${m.id}','team',this.value,'Area')">${TEAM_LIST.map(t=>`<option value="${esc(t)}"${t===m.team?' selected':''}>${esc(t)}</option>`).join('')}</select>
-        <!-- 6. Band Range -->
+        <!-- 6. Manager -->
+        <select class="comp-select-sm" onchange="updateMemberSupervisor('${m.id}',this.value)" title="Direct manager">
+          <option value="">— No manager</option>
+          ${TEAM_MEMBERS.filter(x=>x.id!=='${m.id}').map(x=>'<option value="'+x.id+'"'+(x.id===m.supervisorId?' selected':'')+'>'+esc(x.fullName)+'</option>').join('')}
+        </select>
+        <!-- 7. Band Range -->
         <span style="font-size:10px;font-weight:600;color:var(--deep-teal);background:rgba(16,68,85,.07);border-radius:6px;padding:2px 6px;white-space:nowrap;">${bandLabel}</span>
         <!-- 7. Annual Salary -->
         <div class="comp-currency-wrap"><span class="comp-currency-prefix">€</span><input class="comp-num-input" type="number" min="0" step="500" value="${cr.salary||0}" onchange="updateCompField('${m.id}','salary',this.value,'Annual Salary')" title="Annual gross salary"></div>
@@ -6117,9 +6122,9 @@ function renderAdminTable() {
       </div>
       ${adminTableOpen ? `
       <div style="overflow-x:auto;">
-        <div style="min-width:1280px;">
+        <div style="min-width:1420px;">
           <div class="admin-unified-header">
-            <span>Employee</span><span>Email</span><span>Role</span><span>Title</span><span>Area</span><span>Band Range</span><span>Annual Salary</span><span>Variable €</span><span>Cobee</span><span>ESOP #</span><span>Price/Share</span><span>OTE</span><span>Perf Rating</span><span style="text-align:center;" title="Key Position">🔑</span><span></span>
+            <span>Employee</span><span>Email</span><span>Role</span><span>Title</span><span>Area</span><span>Manager</span><span>Band Range</span><span>Annual Salary</span><span>Variable €</span><span>Cobee</span><span>ESOP #</span><span>Price/Share</span><span>OTE</span><span>Perf Rating</span><span style="text-align:center;" title="Key Position">🔑</span><span></span>
           </div>
           ${unifiedRows || '<div style="text-align:center;padding:20px;color:var(--med-gray);">No employees found</div>'}
         </div>
@@ -6139,6 +6144,7 @@ const BULK_COLUMNS = [
   { key: 'email',         label: 'Email',          source: 'member',  readonly: false },
   { key: 'position',      label: 'Title',          source: 'member',  readonly: false },
   { key: 'team',          label: 'Area',           source: 'member',  readonly: false },
+  { key: 'supervisorId',  label: 'Manager',        source: 'member',  readonly: false },
   { key: 'level',         label: 'Level',          source: 'comp',    readonly: false },
   { key: 'track',         label: 'Track',          source: 'comp',    readonly: false },
   { key: 'salary',        label: 'Annual Salary',  source: 'comp',    readonly: false },
@@ -6269,9 +6275,18 @@ function handleBulkUpload(input) {
           if (val === '') return;
 
           if (col.source === 'member') {
-            if (col.key === 'email')    updateMemberEmail(member.id, val);
+            if (col.key === 'email')         updateMemberEmail(member.id, val);
             else if (col.key === 'position') updateCompMemberField(member.id, 'position', val, 'Title');
             else if (col.key === 'team')     updateCompMemberField(member.id, 'team', val, 'Area');
+            else if (col.key === 'supervisorId') {
+              // Accept full name or email or id
+              const sup = TEAM_MEMBERS.find(x =>
+                x.fullName.toLowerCase() === val.toLowerCase() ||
+                (x.email && x.email.toLowerCase() === val.toLowerCase()) ||
+                x.id === val
+              );
+              if (sup) updateMemberSupervisor(member.id, sup.id);
+            }
           } else {
             // comp field
             const numericKeys = ['salary','targetBonus','cobee','esopShares','esopSharePrice'];
@@ -6936,7 +6951,17 @@ function updateMemberEmail(id, val) {
 
 function updateMemberSupervisor(id, supervisorId) {
   const m = TEAM_MEMBERS.find(m => m.id === id);
-  if (m) m.supervisorId = supervisorId || null;
+  if (!m) return;
+  const oldSup = m.supervisorId;
+  const newSup = supervisorId || null;
+  if (oldSup === newSup) return;
+  m.supervisorId = newSup;
+  // Supabase sync
+  supaSync('team_members', { id, supervisor_id: newSup });
+  // Log to comp history
+  const oldName = oldSup ? (TEAM_MEMBERS.find(x => x.id === oldSup) || {}).fullName || oldSup : '—';
+  const newName = newSup ? (TEAM_MEMBERS.find(x => x.id === newSup) || {}).fullName || newSup : '—';
+  logCompHistory(id, 'field_edit', 'Manager', oldName, newName, '', currentUserId);
 }
 
 function updateMemberTeam(id, val) {
