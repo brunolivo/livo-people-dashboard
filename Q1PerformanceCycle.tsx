@@ -7484,6 +7484,9 @@ updateIdentity(currentUserId);
 renderTimeline();
 renderView();
 renderQuarterPicker();
+// Skip login — go straight to OKR dashboard
+document.getElementById('login-screen').style.display = 'none';
+switchTab('okrs');
 </script>
 </body>
 </html>
