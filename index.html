@@ -1564,6 +1564,7 @@
     .reset-success-title { font-size:15px; font-weight:700; color:var(--dark-gray); font-family:var(--font); margin-bottom:6px; }
     .reset-success-sub { font-size:12px; color:var(--med-gray); font-family:var(--font-ui); line-height:1.5; }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 </head>
 
 <body>
@@ -2313,6 +2314,7 @@ function renderRoleBadge(role) {
 }
 
 function handleRoleChange(memberId, newRole) {
+  supaSync('role_assignments', { member_id:memberId, role:newRole });
   roleAssignments[memberId] = newRole;
   if (memberId === currentUserId) {
     permissions = getPermissions(currentUserId);
@@ -3469,6 +3471,81 @@ let compHistory = [
   { id:'ch-004', memberId:'tm-marta',    ts:'2026-03-12', type:'promotion',  field:'Level',   oldVal:'L3 — Senior', newVal:'L4 — Lead / Manager', note:'Promotion Under Consideration', changedBy:'tm-bruno' },
   { id:'ch-005', memberId:'tm-brian',    ts:'2026-03-12', type:'promotion',  field:'Title',   oldVal:'LiveOps Supervisor', newVal:'Head of LiveOps', note:'Promotion Proposal Submitted', changedBy:'tm-jose' },
 ];
+
+// ═══════════════════════════════════════════════════════════════
+//   SUPABASE — Persistent backend
+// ═══════════════════════════════════════════════════════════════
+const SUPA_URL = 'https://ootiwjtpwxibhgzdomgm.supabase.co';
+const SUPA_KEY = 'sb_publishable_QF6ATlTjCFouX2eQb3UAGw_Q5j0oL2a';
+let supa = null;
+try { supa = window.supabase?.createClient(SUPA_URL, SUPA_KEY) || null; } catch(e) {}
+
+function supaSync(table, data) {
+  if (!supa) return;
+  supa.from(table).upsert(data).then(({error}) => { if (error) console.warn('supaSync', table, error.message); });
+}
+function supaDelete(table, col, val) {
+  if (!supa) return;
+  supa.from(table).delete().eq(col, val).then(({error}) => { if (error) console.warn('supaDelete', table, error.message); });
+}
+
+async function loadFromSupabase() {
+  if (!supa) return;
+  try {
+    const { data: members } = await supa.from('team_members').select('*');
+    if (members && members.length) {
+      TEAM_MEMBERS.length = 0;
+      members.forEach(m => TEAM_MEMBERS.push({ id:m.id, firstName:m.first_name, fullName:m.full_name, email:m.email||'', team:m.team||'', position:m.position||'', supervisorId:m.supervisor_id||null }));
+    } else { await seedToSupabase(); return; }
+    const { data: roles } = await supa.from('role_assignments').select('*');
+    if (roles) roles.forEach(r => roleAssignments[r.member_id] = r.role);
+    const { data: comps } = await supa.from('comp_records').select('*');
+    if (comps) comps.forEach(c => { COMP_RECORDS[c.member_id] = { salary:c.salary||0, targetBonus:c.target_bonus||0, cobee:c.cobee||0, cobeeAlloc:c.cobee_alloc||'', esopShares:c.esop_shares||0, esopSharePrice:c.esop_share_price||1.00, perfRating:c.perf_rating||'unrated', perfRatingOverride:c.perf_rating_override||false, level:c.level||'', track:c.track||'', reviewCycle:c.review_cycle||'' }; });
+    const { data: hist } = await supa.from('comp_history').select('*').order('created_at', {ascending:false});
+    if (hist) { compHistory.length=0; hist.forEach(h => compHistory.push({ id:h.id, memberId:h.member_id, ts:h.ts, type:h.type, field:h.field, oldVal:h.old_val, newVal:h.new_val, note:h.note||'', changedBy:h.changed_by })); }
+    const { data: bands } = await supa.from('salary_bands').select('*').order('sort_order');
+    if (bands && bands.length) { SALARY_BANDS.length=0; bands.forEach(b => SALARY_BANDS.push({ level:b.level, min:b.min_salary, mid:b.mid_salary, max:b.max_salary, bonusTarget:b.bonus_target||0, esopEligible:b.esop_eligible||false })); }
+    const { data: btypes } = await supa.from('budget_types').select('*');
+    if (btypes) btypes.forEach(bt => { const t=budgetData.types.find(x=>x.id===bt.id); if(t){t.q1=bt.q1;t.q2=bt.q2;t.q3=bt.q3;t.q4=bt.q4;} });
+    const { data: bareas } = await supa.from('budget_areas').select('*');
+    if (bareas && bareas.length) { budgetData.areas.length=0; bareas.forEach(b => budgetData.areas.push({ team:b.team, merit:b.merit||0, promo:b.promo||0, market:b.market||0 })); }
+    const { data: kpos }  = await supa.from('key_positions').select('*');
+    if (kpos)  { keyPositions.clear(); kpos.forEach(k => keyPositions.add(k.member_id)); }
+    const { data: kplay } = await supa.from('key_players').select('*');
+    if (kplay) { keyPlayers.clear(); kplay.forEach(k => keyPlayers.add(k.member_id)); }
+    const { data: goals } = await supa.from('company_goals').select('*, key_results(*)').order('sort_order');
+    if (goals && goals.length) { COMPANY_GOALS.length=0; goals.forEach(g => COMPANY_GOALS.push({ id:g.id, title:g.title, tagline:g.tagline||'', owner:g.owner||'', status:g.status||'on_track', krs:(g.key_results||[]).sort((a,b)=>a.sort_order-b.sort_order).map(kr=>({ id:kr.id, text:kr.text, current:kr.current_val||0, target:kr.target||100, unit:kr.unit||'%', status:kr.status||'on_track' })) })); }
+    const { data: agoals } = await supa.from('area_goals').select('*, area_key_results(*)');
+    if (agoals && agoals.length) { AREA_GOALS.length=0; agoals.forEach(g => AREA_GOALS.push({ id:g.id, title:g.title, tagline:g.tagline||'', area:g.area||'', ownerId:g.owner_id||null, status:g.status||'on_track', krs:(g.area_key_results||[]).map(kr=>({ id:kr.id, text:kr.text, current:kr.current_val||0, target:kr.target||100, unit:kr.unit||'%', status:kr.status||'on_track' })) })); }
+    console.log('%c✅ Livo People — synced from Supabase', 'color:#104455;font-weight:bold');
+  } catch(e) { console.warn('Supabase load error (using local data):', e); }
+}
+
+async function seedToSupabase() {
+  if (!supa) return;
+  const leaders = TEAM_MEMBERS.filter(m => !m.supervisorId);
+  const rest    = TEAM_MEMBERS.filter(m =>  m.supervisorId);
+  for (const m of [...leaders, ...rest]) {
+    await supa.from('team_members').upsert({ id:m.id, first_name:m.firstName, full_name:m.fullName, email:m.email||'', team:m.team||'', position:m.position||'', supervisor_id:m.supervisorId||null });
+  }
+  await supa.from('role_assignments').upsert(Object.entries(ROLE_ASSIGNMENTS).map(([k,v])=>({ member_id:k, role:v })));
+  await supa.from('comp_records').upsert(Object.entries(COMP_RECORDS).map(([k,v])=>({ member_id:k, salary:v.salary||0, target_bonus:v.targetBonus||0, cobee:v.cobee||0, cobee_alloc:v.cobeeAlloc||'', esop_shares:v.esopShares||0, esop_share_price:v.esopSharePrice||1.00, perf_rating:v.perfRating||'unrated', level:v.level||'', track:v.track||'' })));
+  await supa.from('salary_bands').upsert(SALARY_BANDS.map((b,i)=>({ level:b.level, min_salary:b.min, mid_salary:b.mid, max_salary:b.max, bonus_target:b.bonusTarget||0, esop_eligible:b.esopEligible||false, sort_order:i+1 })));
+  await supa.from('budget_types').upsert(budgetData.types.map(t=>({ id:t.id, label:t.label, icon:t.icon||'', q1:t.q1||0, q2:t.q2||0, q3:t.q3||0, q4:t.q4||0 })));
+  await supa.from('budget_areas').upsert(budgetData.areas.map(a=>({ team:a.team, merit:a.merit||0, promo:a.promo||0, market:a.market||0 })));
+  const kpRows=[...keyPositions].map(id=>({member_id:id})); if(kpRows.length) await supa.from('key_positions').upsert(kpRows);
+  const kplayRows=[...keyPlayers].map(id=>({member_id:id})); if(kplayRows.length) await supa.from('key_players').upsert(kplayRows);
+  for (const g of COMPANY_GOALS) {
+    await supa.from('company_goals').upsert({ id:g.id, title:g.title, tagline:g.tagline||'', owner:g.owner||'', status:g.status||'on_track', sort_order:COMPANY_GOALS.indexOf(g) });
+    if (g.krs) await supa.from('key_results').upsert(g.krs.map((kr,i)=>({ id:kr.id, goal_id:g.id, text:kr.text, current_val:kr.current||0, target:kr.target||100, unit:kr.unit||'%', status:kr.status||'on_track', sort_order:i })));
+  }
+  for (const g of AREA_GOALS) {
+    await supa.from('area_goals').upsert({ id:g.id, title:g.title, tagline:g.tagline||'', area:g.area||'', owner_id:g.ownerId||null, status:g.status||'on_track' });
+    if (g.krs) await supa.from('area_key_results').upsert(g.krs.map(kr=>({ id:kr.id, area_goal_id:g.id, text:kr.text, current_val:kr.current||0, target:kr.target||100, unit:kr.unit||'%', status:kr.status||'on_track' })));
+  }
+  console.log('%c🌱 Livo People — seeded to Supabase', 'color:#059669;font-weight:bold');
+}
+
 let orgKeyPosExpanded  = new Set(); // memberIds with Key Position section expanded in org panel
 let orgKeyPplExpanded  = new Set(); // memberIds with Key People section expanded in org panel
 let resultsPlayerFilter = 'All';    // 'All' | 'game_changer' | 'key_player' | 'rising_star' | 'developing'
@@ -4767,6 +4844,7 @@ function toggleCompPeopleHistory(memberId) {
 function removeCompHistoryEntry(entryId) {
   const idx = compHistory.findIndex(h => h.id === entryId);
   if (idx !== -1) compHistory.splice(idx, 1);
+  supaDelete('comp_history', 'id', entryId);
   _renderActivePeopleView();
 }
 function startAddCompHistory(memberId) {
@@ -4805,7 +4883,11 @@ function saveAddCompHistory(memberId) {
     }
   }
 
-  compHistory.unshift({ id:'ch-'+Date.now(), memberId, ts:new Date().toISOString().slice(0,10), type:tp, field:f, oldVal:o, newVal:n, note:t, changedBy:currentUserId });
+  const _he = { id:'ch-'+Date.now(), memberId, ts:new Date().toISOString().slice(0,10), type:tp, field:f, oldVal:o, newVal:n, note:t, changedBy:currentUserId };
+  compHistory.unshift(_he);
+  supaSync('comp_history', { id:_he.id, member_id:memberId, ts:_he.ts, type:tp, field:f, old_val:o, new_val:n, note:t, changed_by:currentUserId });
+  const _crSave = COMP_RECORDS[memberId];
+  if (_crSave) supaSync('comp_records', { member_id:memberId, salary:_crSave.salary||0, target_bonus:_crSave.targetBonus||0, cobee:_crSave.cobee||0, esop_shares:_crSave.esopShares||0, esop_share_price:_crSave.esopSharePrice||1.00, perf_rating:_crSave.perfRating||'unrated', perf_rating_override:_crSave.perfRatingOverride||false, level:_crSave.level||'', track:_crSave.track||'' });
   delete compPeopleAddingHistory[memberId];
   _renderActivePeopleView();
 }
@@ -4825,7 +4907,10 @@ function updateCompField(memberId, field, newValue, label) {
   if (oldVal === parsed) return;
   cr[field] = parsed;
   if (field === 'perfRating') cr.perfRatingOverride = true;
-  compHistory.unshift({ id:'ch-'+Date.now(), memberId, ts:new Date().toISOString().slice(0,10), type:'field_edit', field:label||field, oldVal:String(oldVal), newVal:String(newValue), note:'', changedBy:currentUserId });
+  const _chEntry = { id:'ch-'+Date.now(), memberId, ts:new Date().toISOString().slice(0,10), type:'field_edit', field:label||field, oldVal:String(oldVal), newVal:String(newValue), note:'', changedBy:currentUserId };
+  compHistory.unshift(_chEntry);
+  supaSync('comp_records', { member_id:memberId, salary:cr.salary||0, target_bonus:cr.targetBonus||0, cobee:cr.cobee||0, esop_shares:cr.esopShares||0, esop_share_price:cr.esopSharePrice||1.00, perf_rating:cr.perfRating||'unrated', perf_rating_override:cr.perfRatingOverride||false, level:cr.level||'', track:cr.track||'' });
+  supaSync('comp_history', { id:_chEntry.id, member_id:memberId, ts:_chEntry.ts, type:_chEntry.type, field:_chEntry.field, old_val:_chEntry.oldVal, new_val:_chEntry.newVal, note:'', changed_by:currentUserId });
   const _activeComp = document.querySelector('.panel.active');
   if (_activeComp && _activeComp.id === 'panel-admin') renderAdminTable();
   else renderCompPage();
@@ -4835,6 +4920,7 @@ function updateSalaryBand(idx, field, value) {
   if (!b) return;
   const numFields = ['min','mid','max','targetBonus','cobee'];
   b[field] = numFields.includes(field) ? Number(value) : value;
+  supaSync('salary_bands', { level:b.level, min_salary:b.min||0, mid_salary:b.mid||0, max_salary:b.max||0, bonus_target:b.bonusTarget||0, esop_eligible:b.esopEligible||false, sort_order:idx+1 });
   const active = document.querySelector('.panel.active');
   if (active && active.id === 'panel-admin') renderAdminBands();
   else renderCompPage();
@@ -4860,7 +4946,10 @@ function updateCompMemberField(memberId, field, newValue, label) {
   const oldVal = m[field];
   if (oldVal === newValue) return;
   m[field] = newValue;
-  compHistory.unshift({ id:'ch-'+Date.now(), memberId, ts:new Date().toISOString().slice(0,10), type:'field_edit', field:label||field, oldVal:String(oldVal||''), newVal:String(newValue), note:'', changedBy:currentUserId });
+  supaSync('team_members', { id:memberId, first_name:m.firstName, full_name:m.fullName, email:m.email||'', team:m.team||'', position:m.position||'', supervisor_id:m.supervisorId||null });
+  const _cmfEntry = { id:'ch-'+Date.now(), memberId, ts:new Date().toISOString().slice(0,10), type:'field_edit', field:label||field, oldVal:String(oldVal||''), newVal:String(newValue), note:'', changedBy:currentUserId };
+  compHistory.unshift(_cmfEntry);
+  supaSync('comp_history', { id:_cmfEntry.id, member_id:memberId, ts:_cmfEntry.ts, type:_cmfEntry.type, field:_cmfEntry.field, old_val:_cmfEntry.oldVal, new_val:_cmfEntry.newVal, note:'', changed_by:currentUserId });
   const _activeMF = document.querySelector('.panel.active');
   if (_activeMF && _activeMF.id === 'panel-admin') renderAdminTable();
   else renderCompPage();
@@ -5044,10 +5133,11 @@ function succTextSave(store, memberId, field, value) {
   map[memberId][field] = value;
 }
 function toggleKeyPosition(memberId) {
-  if (keyPositions.has(memberId)) keyPositions.delete(memberId);
+  if (keyPositions.has(memberId)) { keyPositions.delete(memberId); supaDelete('key_positions','member_id',memberId); }
   else {
     keyPositions.add(memberId);
     if (!successionPositions[memberId]) successionPositions[memberId] = {};
+    supaSync('key_positions', { member_id:memberId });
   }
   renderAdminTable();
   const panel = document.getElementById('succession-container');
@@ -5055,10 +5145,11 @@ function toggleKeyPosition(memberId) {
   renderResultsPage();
 }
 function toggleKeyPlayer(memberId) {
-  if (keyPlayers.has(memberId)) keyPlayers.delete(memberId);
+  if (keyPlayers.has(memberId)) { keyPlayers.delete(memberId); supaDelete('key_players','member_id',memberId); }
   else {
     keyPlayers.add(memberId);
     if (!successionPlayers[memberId]) successionPlayers[memberId] = {};
+    supaSync('key_players', { member_id:memberId });
   }
   const panel = document.getElementById('succession-container');
   if (panel && panel.children.length) renderSuccessionPage();
@@ -6053,6 +6144,8 @@ function toggleCompSettings() {
 function toggleAdminBudget() {
   adminBudgetOpen = !adminBudgetOpen;
   renderAdminBudget();
+  budgetData.areas.forEach(a => supaSync('budget_areas', { team:a.team, merit:a.merit||0, promo:a.promo||0, market:a.market||0 }));
+  budgetData.types.forEach(t => supaSync('budget_types', { id:t.id, label:t.label, icon:t.icon||'', q1:t.q1||0, q2:t.q2||0, q3:t.q3||0, q4:t.q4||0 }));
 }
 function setAdminBudgetView(v) {
   adminBudgetView = v;
@@ -6426,10 +6519,10 @@ function renderAdminBands() {
 
 function addEmployee() {
   const newId = 'tm-new-' + Date.now();
-  TEAM_MEMBERS.push({
-    id: newId, firstName: 'New', fullName: 'New Employee',
-    email: '', team: '—', position: 'Job Title', supervisorId: null,
-  });
+  const nm = { id:newId, firstName:'New', fullName:'New Employee', email:'', team:'—', position:'Job Title', supervisorId:null };
+  TEAM_MEMBERS.push(nm);
+  supaSync('team_members', { id:newId, first_name:'New', full_name:'New Employee', email:'', team:'—', position:'Job Title', supervisor_id:null });
+  supaSync('role_assignments', { member_id:newId, role:'ic' });
   renderAdminStats();
   renderAdminTable();
 }
@@ -6441,6 +6534,7 @@ function removeEmployee(id) {
   TEAM_MEMBERS.splice(idx, 1);
   TEAM_MEMBERS.forEach(m => { if (m.supervisorId === id) m.supervisorId = null; });
   delete roleAssignments[id];
+  supaDelete('team_members', 'id', id);
   renderAdminStats();
   renderAdminTable();
 }
@@ -6452,7 +6546,7 @@ function updateMemberPosition(id, val) {
 
 function updateMemberEmail(id, val) {
   const m = TEAM_MEMBERS.find(m => m.id === id);
-  if (m) m.email = val;
+  if (m) { m.email = val; supaSync('team_members', { id, email:val }); }
 }
 
 function updateMemberSupervisor(id, supervisorId) {
@@ -7474,13 +7568,15 @@ function submitOkrProposalMy() {
 /* ═══════════════════════════════════════════════════════════════
    INIT
 ═══════════════════════════════════════════════════════════════ */
-populateIdentitySelect();
-updateIdentity(currentUserId);
-renderTimeline();
-renderView();
-renderQuarterPicker();
-// Open directly on OKR dashboard
-switchTab('okrs');
+(async () => {
+  await loadFromSupabase();
+  populateIdentitySelect();
+  updateIdentity(currentUserId);
+  renderTimeline();
+  renderView();
+  renderQuarterPicker();
+  switchTab('okrs');
+})();
 </script>
 </body>
 </html>
