@@ -1555,6 +1555,9 @@
     .login-forgot a { font-size:12px; color:var(--deep-teal); font-family:var(--font-ui); font-weight:500; cursor:pointer; text-decoration:none; opacity:.8; }
     .login-forgot a:hover { opacity:1; text-decoration:underline; }
     .login-back { font-size:12px; color:var(--med-gray); font-family:var(--font-ui); text-align:center; margin-top:14px; cursor:pointer; }
+    .login-demo-hint { font-size:11px; color:var(--med-gray); font-family:var(--font-ui); text-align:center; margin-top:6px; }
+    .login-demo-hint span { color:var(--deep-teal); font-weight:700; cursor:pointer; }
+    .login-demo-hint span:hover { text-decoration:underline; }
     .login-back:hover { color:var(--deep-teal); text-decoration:underline; }
     .reset-success { display:none; text-align:center; padding:18px 0 8px; }
     .reset-success-icon { font-size:38px; margin-bottom:10px; }
@@ -1584,6 +1587,7 @@
       <div class="login-error" id="login-error">Incorrect email or password. Please try again.</div>
       <div class="login-forgot"><a onclick="showForgotPassword()">Forgot your password?</a></div>
       <div class="login-hint">Building the Future of Healthcare</div>
+      <div class="login-demo-hint">Try <span onclick="document.getElementById('login-email').value='carlos@getlivo.com';document.getElementById('login-email').focus()">carlos@getlivo.com</span></div>
     </div>
     <!-- Reset Password view (hidden by default) -->
     <div id="reset-view" style="display:none; width:100%;">
@@ -2279,7 +2283,7 @@ function doLogin() {
   const email = (document.getElementById('login-email').value || '').trim().toLowerCase();
   const pw    = document.getElementById('login-pw').value;
   const err   = document.getElementById('login-error');
-  if (!email || !pw) { err.style.display = 'block'; err.textContent = 'Please enter your email and password.'; return; }
+  if (!email) { err.style.display = 'block'; err.textContent = 'Please enter your work email.'; return; }
   const member = TEAM_MEMBERS.find(m => m.email && m.email.toLowerCase() === email);
   if (!member) { err.style.display = 'block'; err.textContent = 'Email not found. Please use your company email.'; return; }
   err.style.display = 'none';
