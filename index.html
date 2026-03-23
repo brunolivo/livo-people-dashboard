@@ -984,23 +984,23 @@
 
     /* Level-View Layout */
     .lv-wrap      { display:flex; flex-direction:column; position:relative; border:1px solid var(--pale-gray); border-radius:16px; overflow:hidden; box-shadow:0 2px 14px rgba(0,0,0,.06); }
-    .lv-band      { display:flex; align-items:stretch; position:relative; border-bottom:2px solid var(--pale-gray); }
-    .lv-band:last-child { border-bottom:none; }
-    .lv-sidebar   { width:110px; flex-shrink:0; display:flex; flex-direction:column; justify-content:flex-start; align-items:flex-end; padding:18px 12px 18px 0; position:sticky; left:0; z-index:2; background:inherit; border-right:2px solid var(--pale-gray); }
-    .lv-badge     { font-size:13px; font-weight:900; padding:5px 10px; border-radius:9px; font-family:var(--font-ui); text-align:center; margin-bottom:5px; line-height:1.1; }
+    .lv-band      { display:flex; align-items:stretch; position:relative; }
+    .lv-band + .lv-band { border-top:3px solid var(--pale-gray); }
+    .lv-sidebar   { width:116px; flex-shrink:0; display:flex; flex-direction:column; justify-content:center; align-items:flex-end; padding:22px 14px 22px 0; position:sticky; left:0; z-index:2; background:inherit; border-right:3px solid var(--pale-gray); gap:4px; }
+    .lv-badge     { font-size:16px; font-weight:900; padding:6px 12px; border-radius:10px; font-family:var(--font-ui); text-align:center; line-height:1.1; }
     .lv-count     { font-size:9px; font-weight:600; color:var(--med-gray); font-family:var(--font-ui); }
-    .lv-content   { flex:1; display:flex; flex-direction:column; gap:0; padding:16px 16px 16px 18px; min-height:130px; }
-    .lv-groups-wrap { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; }
+    .lv-content   { flex:1; display:flex; flex-direction:column; gap:0; padding:20px 20px 20px 20px; min-height:140px; }
+    .lv-groups-wrap { display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start; }
     .lv-mgr-group { display:flex; flex-direction:column; align-items:center; }
-    .lv-mgr-label { font-size:8px; font-weight:800; font-family:var(--font-ui); padding:2px 8px; border-radius:5px; white-space:nowrap; margin-bottom:0; text-align:center; }
+    .lv-mgr-label { font-size:8px; font-weight:800; font-family:var(--font-ui); padding:2px 9px; border-radius:5px; white-space:nowrap; margin-bottom:0; text-align:center; }
     .lv-mgr-vline { width:2px; flex-shrink:0; min-height:12px; }
     .lv-mgr-cards { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
-    .lv-card      { width:155px; background:#fff; border-radius:12px; border:1.5px solid var(--pale-gray); padding:9px 10px 8px; box-sizing:border-box; display:flex; flex-direction:column; gap:4px; transition:box-shadow .15s,transform .15s; flex-shrink:0; }
+    .lv-card      { width:158px; background:#fff; border-radius:12px; border:1.5px solid var(--pale-gray); padding:10px 11px 9px; box-sizing:border-box; display:flex; flex-direction:column; gap:4px; transition:box-shadow .15s,transform .15s; flex-shrink:0; }
     .lv-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.09); transform:translateY(-1px); }
     .lv-card.is-self { border-color:var(--deep-teal); background:#F0FAFB; }
-    .lv-dist-spacer { height:32px; display:flex; align-items:center; justify-content:center; width:100%; margin:0; }
-    .lv-dist-ruler { flex:1; border-top:1.5px dashed rgba(150,150,150,.2); }
-    .lv-dist-label { font-size:8px; font-weight:600; color:var(--med-gray); font-family:var(--font-ui); padding:0 8px; white-space:nowrap; }
+    .lv-dist-spacer { height:0; }
+    .lv-dist-ruler { display:none; }
+    .lv-dist-label { display:none; }
     .org-view-toggle { display:inline-flex; border:1px solid var(--pale-gray); border-radius:10px; overflow:hidden; }
     .org-view-toggle button { padding:5px 13px; font-size:10px; font-weight:700; font-family:var(--font-ui); border:none; cursor:pointer; transition:background .15s, color .15s; }
     .org-view-toggle button.active { background:var(--deep-teal); color:#fff; }
@@ -6149,22 +6149,23 @@ function renderTalentMapPage() {
 function renderOrgChartPage() {
   const container = document.getElementById('orgchart-content');
   if (!container) return;
-  const memberData = getResultsMemberData();
-  const isTree     = orgChartViewMode === 'tree';
+  const memberData  = getResultsMemberData();
+  const treeVisible = orgChartViewMode === 'tree';
   container.innerHTML = `
     <div style="padding:24px 28px;">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;">
-        <div>
-          <h2 style="font-family:var(--font);font-size:20px;font-weight:800;color:var(--dark-gray);margin:0 0 4px;">Org Chart</h2>
-          <p style="font-size:12px;color:var(--med-gray);font-family:var(--font-ui);margin:0;">Full organisation view — Q1 2026</p>
-        </div>
-        <div class="org-view-toggle">
-          <button class="${isTree ? 'active' : ''}" onclick="setOrgChartView('tree')">🌲 Tree</button>
-          <button class="${!isTree ? 'active' : ''}" onclick="setOrgChartView('levels')">📊 Levels</button>
-        </div>
+      <div style="margin-bottom:18px;">
+        <h2 style="font-family:var(--font);font-size:20px;font-weight:800;color:var(--dark-gray);margin:0 0 4px;">Org Chart</h2>
+        <p style="font-size:12px;color:var(--med-gray);font-family:var(--font-ui);margin:0;">Employees aligned by level — L5 at top, L1 at bottom</p>
       </div>
       ${renderLevelDistPanel(memberData)}
-      ${isTree ? renderOrgChart(memberData) : renderOrgLevelView(memberData)}
+      ${renderOrgLevelView(memberData)}
+      <div style="margin-top:24px;">
+        <button onclick="setOrgChartView('${treeVisible ? 'levels' : 'tree'}')"
+          style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:10px;border:1px solid var(--pale-gray);background:#fff;font-size:10px;font-weight:700;color:var(--med-gray);cursor:pointer;font-family:var(--font-ui);">
+          ${treeVisible ? '▲ Hide' : '🌲 Show'} Reporting Tree
+        </button>
+        ${treeVisible ? '<div style="margin-top:16px;">' + renderOrgChart(memberData) + '</div>' : ''}
+      </div>
     </div>`;
 }
 
