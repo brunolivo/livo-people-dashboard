@@ -2285,21 +2285,18 @@ function doPasswordReset() {
   document.getElementById('reset-success').style.display   = '';
 }
 function doLogin() {
-  const email = (document.getElementById('login-email').value || '').trim().toLowerCase();
-  const pw    = document.getElementById('login-pw').value;
-  const err   = document.getElementById('login-error');
+  const email  = (document.getElementById('login-email').value || '').trim().toLowerCase();
+  const err    = document.getElementById('login-error');
   if (!email) { err.style.display = 'block'; err.textContent = 'Please enter your work email.'; return; }
   const member = TEAM_MEMBERS.find(m => m.email && m.email.toLowerCase() === email);
-  if (!member) { err.style.display = 'block'; err.textContent = 'Email not found. Please use your company email.'; return; }
+  if (!member) { err.style.display = 'block'; err.textContent = 'Email not found. Use a company email.'; return; }
   err.style.display = 'none';
-  // Set current user
   currentUserId = member.id;
   permissions   = getPermissions(currentUserId);
-  updateIdentity(currentUserId);
-  // Hide login, show app
+  // ── Hide login screen FIRST so any downstream error doesn't block entry ──
   document.getElementById('login-screen').style.display = 'none';
-  // Init app panels
-  switchTab('okrs');
+  try { updateIdentity(currentUserId); } catch(e) { console.warn('updateIdentity:', e); }
+  try { switchTab('okrs'); }            catch(e) { console.warn('switchTab:', e); }
 }
 
 function doLogout() {
