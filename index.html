@@ -1610,6 +1610,29 @@
       </div>
       <div class="login-back" onclick="showLoginForm()">← Back to Sign In</div>
     </div>
+
+    <!-- ── Set New Password view (shown after clicking reset link) ── -->
+    <div id="newpassword-view" style="display:none; width:100%;">
+      <div style="margin-bottom:20px;">
+        <div style="font-size:18px;font-weight:800;color:var(--dark-gray);font-family:var(--font);margin-bottom:6px;">Set New Password</div>
+        <div style="font-size:13px;color:var(--med-gray);font-family:var(--font-ui);line-height:1.5;">Choose a new password for your Livo account.</div>
+      </div>
+      <div id="newpassword-form-wrap">
+        <div class="login-label">New Password</div>
+        <input id="new-pw" class="login-input" type="password" placeholder="Min. 8 characters"
+               onkeydown="if(event.key==='Enter')document.getElementById('new-pw-confirm').focus()">
+        <div class="login-label" style="margin-top:10px;">Confirm New Password</div>
+        <input id="new-pw-confirm" class="login-input" type="password" placeholder="Repeat new password"
+               onkeydown="if(event.key==='Enter')doSetNewPassword()">
+        <div class="login-error" id="newpassword-error" style="display:none;margin-bottom:10px;">Passwords don't match.</div>
+        <button class="login-btn" onclick="doSetNewPassword()">Set New Password</button>
+      </div>
+      <div class="reset-success" id="newpassword-success">
+        <div class="reset-success-icon">✅</div>
+        <div class="reset-success-title">Password updated!</div>
+        <div class="reset-success-sub">Your password has been changed.<br>Redirecting to Sign In…</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -2274,21 +2297,78 @@ function showForgotPassword() {
   setTimeout(()=>document.getElementById('reset-email').focus(), 50);
 }
 function showLoginForm() {
-  document.getElementById('reset-view').style.display  = 'none';
-  document.getElementById('login-view').style.display  = '';
-  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('reset-view').style.display       = 'none';
+  document.getElementById('newpassword-view').style.display = 'none';
+  document.getElementById('login-view').style.display       = '';
+  document.getElementById('login-error').style.display      = 'none';
 }
-function doPasswordReset() {
+async function doPasswordReset() {
   const email = document.getElementById('reset-email').value.trim();
   const errEl = document.getElementById('reset-error');
   if (!email || !email.includes('@')) {
+    errEl.textContent = 'Please enter a valid email address.';
     errEl.style.display = '';
     return;
   }
   errEl.style.display = 'none';
+  const btn = document.querySelector('#reset-view .login-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  if (supa) {
+    const { error } = await supa.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://livo-people-export.vercel.app'
+    });
+    if (error) {
+      errEl.textContent = error.message;
+      errEl.style.display = '';
+      if (btn) { btn.disabled = false; btn.textContent = 'Send Reset Link'; }
+      return;
+    }
+  }
   document.getElementById('reset-email-sent').textContent = email;
   document.getElementById('reset-form-wrap').style.display = 'none';
   document.getElementById('reset-success').style.display   = '';
+  if (btn) { btn.disabled = false; btn.textContent = 'Send Reset Link'; }
+}
+
+function showNewPasswordForm() {
+  document.getElementById('login-view').style.display       = 'none';
+  document.getElementById('reset-view').style.display       = 'none';
+  document.getElementById('newpassword-view').style.display = '';
+  document.getElementById('newpassword-form-wrap').style.display = '';
+  document.getElementById('newpassword-success').style.display   = 'none';
+  document.getElementById('newpassword-error').style.display     = 'none';
+  setTimeout(() => document.getElementById('new-pw').focus(), 50);
+}
+
+async function doSetNewPassword() {
+  const pw        = document.getElementById('new-pw').value;
+  const pwConfirm = document.getElementById('new-pw-confirm').value;
+  const errEl     = document.getElementById('newpassword-error');
+  errEl.style.display = 'none';
+  if (!pw || pw.length < 8) {
+    errEl.textContent = 'Password must be at least 8 characters.';
+    errEl.style.display = '';
+    return;
+  }
+  if (pw !== pwConfirm) {
+    errEl.textContent = "Passwords don't match.";
+    errEl.style.display = '';
+    return;
+  }
+  const btn = document.querySelector('#newpassword-view .login-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  const { error } = await supa.auth.updateUser({ password: pw });
+  if (error) {
+    errEl.textContent = error.message;
+    errEl.style.display = '';
+    if (btn) { btn.disabled = false; btn.textContent = 'Set New Password'; }
+    return;
+  }
+  // Success — show confirmation and redirect to login
+  document.getElementById('newpassword-form-wrap').style.display = 'none';
+  document.getElementById('newpassword-success').style.display   = '';
+  history.replaceState(null, '', window.location.pathname);
+  setTimeout(() => showLoginForm(), 2500);
 }
 async function doLogin() {
   const email  = (document.getElementById('login-email').value || '').trim().toLowerCase();
@@ -7635,8 +7715,18 @@ function submitOkrProposalMy() {
    INIT
 ═══════════════════════════════════════════════════════════════ */
 (async () => {
-  // Check for an existing Supabase session — skip login if already authenticated
   if (supa) {
+    // Detect password recovery link (type=recovery in URL hash)
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    if (hashParams.get('type') === 'recovery') {
+      // Let Supabase process the recovery token from the URL
+      await supa.auth.getSession();
+      document.getElementById('login-screen').style.display = 'flex';
+      showNewPasswordForm();
+      return; // Stop init — user must set new password first
+    }
+
+    // Check for an existing Supabase session — skip login if already authenticated
     const { data: { session } } = await supa.auth.getSession();
     if (session) {
       const email = (session.user.email || '').toLowerCase();
@@ -7644,10 +7734,15 @@ function submitOkrProposalMy() {
       if (member) { currentUserId = member.id; permissions = getPermissions(currentUserId); }
       document.getElementById('login-screen').style.display = 'none';
     }
-    // Listen for auth state changes (login / logout)
+
+    // Listen for auth state changes
     supa.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         document.getElementById('login-screen').style.display = 'flex';
+      }
+      if (event === 'PASSWORD_RECOVERY') {
+        document.getElementById('login-screen').style.display = 'flex';
+        showNewPasswordForm();
       }
     });
   }
