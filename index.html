@@ -1255,8 +1255,8 @@
   /* ── Comp People Table ───────────────────────────────────────── */
   .comp-people-table { border:1px solid var(--pale-gray); border-radius:16px; overflow:hidden; box-shadow:0 2px 14px rgba(0,0,0,.06); }
   .comp-people-header { display:grid; grid-template-columns:1.8fr 1.2fr 1fr 1.2fr 1fr 1fr 0.7fr 0.7fr 0.7fr 0.7fr 0.8fr 1fr 1.1fr; padding:10px 16px; background:linear-gradient(135deg,#F5FAF2,var(--bg-cream2)); font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--med-gray); border-bottom:1px solid var(--pale-gray); }
-  .admin-unified-header { display:grid; grid-template-columns:2fr 1.4fr 0.9fr 1fr 0.9fr 1.1fr 0.9fr 0.9fr 0.7fr 0.6fr 0.6fr 0.6fr 0.9fr 1fr 0.4fr 0.4fr; padding:10px 16px; background:linear-gradient(135deg,#F5FAF2,var(--bg-cream2)); font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--med-gray); border-bottom:1px solid var(--pale-gray); font-family:var(--font-ui); }
-  .admin-unified-row { display:grid; grid-template-columns:2fr 1.4fr 0.9fr 1fr 0.9fr 1.1fr 0.9fr 0.9fr 0.7fr 0.6fr 0.6fr 0.6fr 0.9fr 1fr 0.4fr 0.4fr; align-items:center; padding:10px 16px; border-bottom:1px solid rgba(216,216,216,.55); transition:background var(--transition); }
+  .admin-unified-header { display:grid; grid-template-columns:2fr 1.4fr 0.9fr 1fr 0.9fr 1.1fr 0.9fr 0.9fr 0.9fr 0.7fr 0.6fr 0.6fr 0.6fr 0.9fr 1fr 0.4fr 0.4fr; padding:10px 16px; background:linear-gradient(135deg,#F5FAF2,var(--bg-cream2)); font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--med-gray); border-bottom:1px solid var(--pale-gray); font-family:var(--font-ui); }
+  .admin-unified-row { display:grid; grid-template-columns:2fr 1.4fr 0.9fr 1fr 0.9fr 1.1fr 0.9fr 0.9fr 0.9fr 0.7fr 0.6fr 0.6fr 0.6fr 0.9fr 1fr 0.4fr 0.4fr; align-items:center; padding:10px 16px; border-bottom:1px solid rgba(216,216,216,.55); transition:background var(--transition); }
   .admin-unified-row:hover { background:#F7FBF4; }
   .comp-people-row { display:grid; grid-template-columns:1.8fr 1.2fr 1fr 1.2fr 1fr 1fr 0.7fr 0.7fr 0.7fr 0.7fr 0.8fr 1fr 1.1fr; align-items:center; padding:10px 16px; border-bottom:1px solid rgba(216,216,216,.55); transition:background var(--transition); }
   .comp-people-row:last-child { border-bottom:none; }
@@ -6069,7 +6069,12 @@ function renderAdminTable() {
           <option value="">— No manager</option>
           ${TEAM_MEMBERS.filter(x=>x.id!=='${m.id}').map(x=>'<option value="'+x.id+'"'+(x.id===m.supervisorId?' selected':'')+'>'+esc(x.fullName)+'</option>').join('')}
         </select>
-        <!-- 7. Band Range -->
+        <!-- 7. Level -->
+        <select class="comp-select-sm" onchange="updateCompField('${m.id}','level',this.value,'Level')" title="Salary band level">
+          <option value="">— Select —</option>
+          ${SALARY_BANDS.map(b=>'<option value="'+b.level+'"'+(b.level===(cr.level||'')?' selected':'')+'>'+b.level+'</option>').join('')}
+        </select>
+        <!-- 8. Band Range -->
         <span style="font-size:10px;font-weight:600;color:var(--deep-teal);background:rgba(16,68,85,.07);border-radius:6px;padding:2px 6px;white-space:nowrap;">${bandLabel}</span>
         <!-- 7. Annual Salary -->
         <div class="comp-currency-wrap"><span class="comp-currency-prefix">€</span><input class="comp-num-input" type="number" min="0" step="500" value="${cr.salary||0}" onchange="updateCompField('${m.id}','salary',this.value,'Annual Salary')" title="Annual gross salary"></div>
@@ -6122,9 +6127,9 @@ function renderAdminTable() {
       </div>
       ${adminTableOpen ? `
       <div style="overflow-x:auto;">
-        <div style="min-width:1420px;">
+        <div style="min-width:1550px;">
           <div class="admin-unified-header">
-            <span>Employee</span><span>Email</span><span>Role</span><span>Title</span><span>Area</span><span>Manager</span><span>Band Range</span><span>Annual Salary</span><span>Variable €</span><span>Cobee</span><span>ESOP #</span><span>Price/Share</span><span>OTE</span><span>Perf Rating</span><span style="text-align:center;" title="Key Position">🔑</span><span></span>
+            <span>Employee</span><span>Email</span><span>Role</span><span>Title</span><span>Area</span><span>Manager</span><span>Level</span><span>Band Range</span><span>Annual Salary</span><span>Variable €</span><span>Cobee</span><span>ESOP #</span><span>Price/Share</span><span>OTE</span><span>Perf Rating</span><span style="text-align:center;" title="Key Position">🔑</span><span></span>
           </div>
           ${unifiedRows || '<div style="text-align:center;padding:20px;color:var(--med-gray);">No employees found</div>'}
         </div>
