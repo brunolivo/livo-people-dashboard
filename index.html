@@ -975,10 +975,10 @@
     .org-chart-wrap { overflow-x:auto; overflow-y:visible; padding:20px 0 32px; }
     .org-chart { display:inline-flex; flex-direction:column; align-items:center; min-width:100%; padding:0 40px; }
     .org-node { display:flex; flex-direction:column; align-items:center; }
-    .org-children-row { display:flex; gap:12px; position:relative; }
+    .org-children-row { display:flex; gap:12px; position:relative; align-items:flex-start; }
     .org-children-row:not(.single-child)::before { content:''; position:absolute; top:0; left:85px; right:85px; height:2px; background:#e0e0e0; }
-    .org-children-row > .org-node { position:relative; padding-top:20px; }
-    .org-children-row > .org-node::before { content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:2px; height:20px; background:#e0e0e0; }
+    .org-child-slot { display:flex; flex-direction:column; align-items:center; }
+    .org-child-vline { width:2px; background:#e0e0e0; flex-shrink:0; border-radius:1px; }
     .org-card { width:170px; background:#fff; border-radius:14px; border:1.5px solid var(--pale-gray); padding:11px 12px 10px; display:flex; flex-direction:column; gap:6px; box-sizing:border-box; transition:box-shadow .15s; }
     .org-card.is-self { border-color:var(--deep-teal); background:#F0FAFB; }
 
@@ -4026,6 +4026,22 @@ function renderOrgDetailPanel(m) {
 }
 
 
+
+const LEVEL_NUM = {
+  'L1 — Junior':         1,
+  'L2 — Mid':            2,
+  'L3 — Senior':         3,
+  'L4 — Lead / Manager': 4,
+  'L5 — Director+':      5,
+};
+function getMemberLevelNum(memberId) {
+  const lv = (COMP_RECORDS[memberId] || {}).level || '';
+  for (const [key, num] of Object.entries(LEVEL_NUM)) {
+    if (lv.startsWith(key.split(' ')[0])) return num;
+  }
+  return 0;
+}
+
 const LEVEL_COLORS = {
   'L1 — Junior':         { bar:'#94A3B8', bg:'#F1F5F9', text:'#475569', border:'#CBD5E1' },
   'L2 — Mid':            { bar:'#60A5FA', bg:'#EFF6FF', text:'#1D4ED8', border:'#BFDBFE' },
@@ -4141,7 +4157,10 @@ function renderOrgCard(node) {
             <span style="font-size:9px;color:var(--med-gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;font-family:var(--font-ui);">${esc(node.position)}</span>
             ${keyPositions.has(node.id) ? '<span class="org-key-badge">🔑</span>' : ''}
           </div>
-          <div style="font-size:8px;font-weight:600;color:var(--deep-teal);background:rgba(16,68,85,.07);border-radius:4px;padding:1px 5px;margin-top:2px;display:inline-block;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-ui);">${esc(node.team || '')}</div>
+          <div style="display:flex;align-items:center;gap:4px;margin-top:2px;flex-wrap:wrap;">
+            <div style="font-size:8px;font-weight:600;color:var(--deep-teal);background:rgba(16,68,85,.07);border-radius:4px;padding:1px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-ui);max-width:90px;">${esc(node.team || '')}</div>
+            ${(() => { const lv=(COMP_RECORDS[node.id]||{}).level||''; const lvKey=Object.keys(LEVEL_NUM).find(k=>lv.startsWith(k.split(' ')[0]))||''; const col=LEVEL_COLORS[lvKey]||LEVEL_COLORS['']; const sh=lv.match(/^(L\d)/)?.[1]||''; return sh?'<span style="font-size:8px;font-weight:800;padding:1px 5px;border-radius:4px;background:'+col.bg+';color:'+col.text+';border:1px solid '+col.border+';font-family:var(--font-ui);">'+sh+'</span>':''; })()}
+          </div>
           ${(roleAssignments[currentUserId]==='super_admin' && COMP_RECORDS[node.id]) ? (() => { const cr=COMP_RECORDS[node.id]; const band=getBandForLevel(cr.level); const pos=band?getBandPosition(cr.salary,band):null; const blurStyle=compSalaryBlurred?'filter:blur(5px);user-select:none;display:inline-block;transition:filter .2s;':'display:inline-block;transition:filter .2s;'; return '<div class="comp-salary-chip" onclick="event.stopPropagation();toggleSalaryBlur();" style="cursor:pointer;" title="'+(compSalaryBlurred?'Click to reveal salary':'Click to hide salary')+'">💰 <span style="'+blurStyle+'">'+fmtSalary(cr.salary)+'</span></div>'+(band&&pos!==null?'<div class="comp-band-mini"><div class="comp-band-mini-bar"><div class="comp-band-mini-fill" style="width:100%;"></div><div class="comp-band-mini-dot" style="left:'+pos+'%;"></div></div></div>':''); })() : ''}
         </div>
       </div>
@@ -4200,12 +4219,23 @@ function renderOrgNode(node, depth) {
       + (childLevelPills ? '<div class="org-reports-dist">' + childLevelPills + '</div>' : '')
     : '';
 
-  const connectorAndChildren = (hasChildren && !isCollapsed)
-    ? `<div class="org-connector"></div>
-       <div class="org-children-row${node.children.length === 1 ? ' single-child' : ''}">
-         ${node.children.map(c => renderOrgNode(c, depth + 1)).join('')}
-       </div>`
-    : '';
+  const connectorAndChildren = (hasChildren && !isCollapsed) ? (() => {
+    const parentLvNum = getMemberLevelNum(node.id);
+    // Per-child gap: distance in levels determines connector height (min 20px, +18px per level gap)
+    const childSlots = node.children.map(c => {
+      const childLvNum = getMemberLevelNum(c.id);
+      const gap        = parentLvNum > 0 && childLvNum > 0 ? parentLvNum - childLvNum : 0;
+      const vLineH     = Math.max(20, 20 + gap * 22);
+      const col        = LEVEL_COLORS[Object.keys(LEVEL_NUM).find(k => childLvNum === LEVEL_NUM[k]) || ''] || {};
+      const lineColor  = gap > 0 ? (col.bar || '#e0e0e0') : '#e0e0e0';
+      return '<div class="org-child-slot"><div class="org-child-vline" style="height:' + vLineH + 'px;background:' + lineColor + ';opacity:' + (gap>0?.7:1) + ';"></div>' + renderOrgNode(c, depth + 1) + '</div>';
+    }).join('');
+    // Main vertical connector from parent to the row: height = max child gap
+    const maxGap    = Math.max(0, ...node.children.map(c => { const n=getMemberLevelNum(c.id); return parentLvNum>0&&n>0?parentLvNum-n:0; }));
+    const mainConnH = Math.max(20, 20 + maxGap * 10);
+    return '<div class="org-connector" style="height:' + mainConnH + 'px;"></div>'
+      + '<div class="org-children-row' + (node.children.length === 1 ? ' single-child' : '') + '">' + childSlots + '</div>';
+  })() : '';
 
   return `<div class="org-node">${card}${detailPanel}${expandBtn}${connectorAndChildren}</div>`;
 }
