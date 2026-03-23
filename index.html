@@ -4048,6 +4048,21 @@ function getMemberLevelNum(memberId) {
   return 0;
 }
 
+
+const CONTRACT_COLORS = {
+  'FTE':        { bg:'#ECFDF5', text:'#065F46', border:'#A7F3D0' },
+  'PT':         { bg:'#EFF6FF', text:'#1D4ED8', border:'#BFDBFE' },
+  'Consultant': { bg:'#FFF7ED', text:'#C2410C', border:'#FED7AA' },
+  'Intern':     { bg:'#F5F3FF', text:'#5B21B6', border:'#DDD6FE' },
+};
+function contractTypeBadge(memberId, size) {
+  const ct  = (COMP_RECORDS[memberId] || {}).contractType || '';
+  if (!ct) return '';
+  const col = CONTRACT_COLORS[ct] || { bg:'#F3F4F6', text:'#374151', border:'#E5E7EB' };
+  const fs  = size === 'sm' ? '7px' : '8px';
+  return '<span style="font-size:' + fs + ';font-weight:800;padding:1px 5px;border-radius:4px;background:' + col.bg + ';color:' + col.text + ';border:1px solid ' + col.border + ';font-family:var(--font-ui);white-space:nowrap;">' + ct + '</span>';
+}
+
 const LEVEL_COLORS = {
   'L1 — Junior':         { bar:'#94A3B8', bg:'#F1F5F9', text:'#475569', border:'#CBD5E1' },
   'L2 — Mid':            { bar:'#60A5FA', bg:'#EFF6FF', text:'#1D4ED8', border:'#BFDBFE' },
@@ -4166,6 +4181,7 @@ function renderOrgCard(node) {
           <div style="display:flex;align-items:center;gap:4px;margin-top:2px;flex-wrap:wrap;">
             <div style="font-size:8px;font-weight:600;color:var(--deep-teal);background:rgba(16,68,85,.07);border-radius:4px;padding:1px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font-ui);max-width:90px;">${esc(node.team || '')}</div>
             ${(() => { const lv=(COMP_RECORDS[node.id]||{}).level||''; const lvKey=Object.keys(LEVEL_NUM).find(k=>lv.startsWith(k.split(' ')[0]))||''; const col=LEVEL_COLORS[lvKey]||LEVEL_COLORS['']; const sh=lv.match(/^(L\d)/)?.[1]||''; return sh?'<span style="font-size:8px;font-weight:800;padding:1px 5px;border-radius:4px;background:'+col.bg+';color:'+col.text+';border:1px solid '+col.border+';font-family:var(--font-ui);">'+sh+'</span>':''; })()}
+            ${contractTypeBadge(node.id, 'sm')}
           </div>
           ${(roleAssignments[currentUserId]==='super_admin' && COMP_RECORDS[node.id]) ? (() => { const cr=COMP_RECORDS[node.id]; const band=getBandForLevel(cr.level); const pos=band?getBandPosition(cr.salary,band):null; const blurStyle=compSalaryBlurred?'filter:blur(5px);user-select:none;display:inline-block;transition:filter .2s;':'display:inline-block;transition:filter .2s;'; return '<div class="comp-salary-chip" onclick="event.stopPropagation();toggleSalaryBlur();" style="cursor:pointer;" title="'+(compSalaryBlurred?'Click to reveal salary':'Click to hide salary')+'">💰 <span style="'+blurStyle+'">'+fmtSalary(cr.salary)+'</span></div>'+(band&&pos!==null?'<div class="comp-band-mini"><div class="comp-band-mini-bar"><div class="comp-band-mini-fill" style="width:100%;"></div><div class="comp-band-mini-dot" style="left:'+pos+'%;"></div></div></div>':''); })() : ''}
         </div>
@@ -4287,6 +4303,7 @@ function renderOrgLevelView(memberData) {
       + '<div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center;">'
       +   '<span style="font-size:8px;font-weight:600;color:var(--deep-teal);background:rgba(16,68,85,.07);border-radius:4px;padding:1px 5px;font-family:var(--font-ui);overflow:hidden;text-overflow:ellipsis;max-width:80px;white-space:nowrap;">' + esc(m.team || '') + '</span>'
       +   '<span style="font-size:8px;font-weight:800;padding:1px 5px;border-radius:4px;background:' + col.bg + ';color:' + col.text + ';border:1px solid ' + col.border + ';font-family:var(--font-ui);">' + (lvKey.match(/^(L\d)/)||['','?'])[1] + '</span>'
+      +   contractTypeBadge(m.id, 'sm')
       +   (keyPositions.has(m.id) ? '<span title="Key Position" style="font-size:9px;">🔑</span>' : '')
       + '</div>'
       + '<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border-radius:6px;background:' + pt.bg + ';border:1px solid ' + pt.border + ';font-size:8px;font-weight:700;color:' + pt.text + ';font-family:var(--font-ui);">' + pt.icon + ' ' + pt.label + '</span>'
