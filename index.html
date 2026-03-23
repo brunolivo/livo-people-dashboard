@@ -981,6 +981,20 @@
     .org-children-row > .org-node::before { content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:2px; height:20px; background:#e0e0e0; }
     .org-card { width:170px; background:#fff; border-radius:14px; border:1.5px solid var(--pale-gray); padding:11px 12px 10px; display:flex; flex-direction:column; gap:6px; box-sizing:border-box; transition:box-shadow .15s; }
     .org-card.is-self { border-color:var(--deep-teal); background:#F0FAFB; }
+    /* Level Distribution — OrgChart */
+    .lvl-dist-panel { background:#fff; border:1px solid var(--pale-gray); border-radius:16px; padding:18px 22px; margin-bottom:20px; box-shadow:0 2px 12px rgba(0,0,0,.05); }
+    .lvl-dist-title { font-size:12px; font-weight:800; color:var(--dark-gray); font-family:var(--font-ui); margin-bottom:14px; display:flex; align-items:center; gap:6px; }
+    .lvl-dist-row { display:flex; align-items:center; gap:10px; margin-bottom:9px; }
+    .lvl-dist-row:last-child { margin-bottom:0; }
+    .lvl-dist-label { font-size:10px; font-weight:700; color:var(--dark-gray); font-family:var(--font-ui); width:130px; flex-shrink:0; white-space:nowrap; }
+    .lvl-dist-bar-wrap { flex:1; height:14px; background:var(--bg-cream2); border-radius:7px; overflow:hidden; position:relative; }
+    .lvl-dist-bar-fill { height:100%; border-radius:7px; transition:width .5s ease; }
+    .lvl-dist-count { font-size:10px; font-weight:800; color:var(--dark-gray); font-family:var(--font-ui); width:28px; text-align:right; flex-shrink:0; }
+    .lvl-dist-pct { font-size:9px; font-weight:600; color:var(--med-gray); font-family:var(--font-ui); width:34px; text-align:right; flex-shrink:0; }
+    .lvl-dist-chips { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+    .lvl-pill { font-size:8px; font-weight:800; padding:1px 6px; border-radius:5px; font-family:var(--font-ui); white-space:nowrap; }
+    .org-reports-dist { display:flex; gap:3px; flex-wrap:wrap; margin-top:4px; padding:0 2px; }
+
     .org-card:hover { box-shadow:0 4px 16px rgba(0,0,0,.08); }
     .org-connector { width:2px; height:20px; background:#e0e0e0; align-self:center; flex-shrink:0; }
     .org-expand-btn { margin-top:4px; align-self:center; padding:2px 10px; border-radius:10px; font-size:9px; font-weight:700; cursor:pointer; border:1.5px solid var(--pale-gray); background:#fff; color:var(--med-gray); font-family:var(--font-ui); letter-spacing:.02em; transition:var(--transition); white-space:nowrap; }
@@ -3991,6 +4005,96 @@ function renderOrgDetailPanel(m) {
   '</div>';
 }
 
+
+const LEVEL_COLORS = {
+  'L1 — Junior':         { bar:'#94A3B8', bg:'#F1F5F9', text:'#475569', border:'#CBD5E1' },
+  'L2 — Mid':            { bar:'#60A5FA', bg:'#EFF6FF', text:'#1D4ED8', border:'#BFDBFE' },
+  'L3 — Senior':         { bar:'#34D399', bg:'#ECFDF5', text:'#065F46', border:'#A7F3D0' },
+  'L4 — Lead / Manager': { bar:'#F59E0B', bg:'#FFFBEB', text:'#92400E', border:'#FDE68A' },
+  'L5 — Director+':      { bar:'#A78BFA', bg:'#F5F3FF', text:'#5B21B6', border:'#DDD6FE' },
+  '':                    { bar:'#D1D5DB', bg:'#F9FAFB', text:'#6B7280', border:'#E5E7EB' },
+};
+
+function getLevelColor(level) {
+  for (const key of Object.keys(LEVEL_COLORS)) {
+    if (level && level.startsWith(key.split(' ')[0])) return LEVEL_COLORS[key];
+  }
+  return LEVEL_COLORS['L1 — Junior'];
+}
+
+
+function renderLevelDistPanel(memberData) {
+  const levels = ['L5 — Director+', 'L4 — Lead / Manager', 'L3 — Senior', 'L2 — Mid', 'L1 — Junior'];
+  const total  = memberData.length || 1;
+
+  // Count per level
+  const counts = {};
+  memberData.forEach(m => {
+    const cr = COMP_RECORDS[m.id] || {};
+    const lv = cr.level || '';
+    // normalise to canonical key
+    const key = levels.find(l => lv.startsWith(l.split(' ')[0])) || (lv || 'Unassigned');
+    counts[key] = (counts[key] || 0) + 1;
+  });
+
+  const maxCount = Math.max(...Object.values(counts), 1);
+
+  const rows = levels.map(lv => {
+    const n   = counts[lv] || 0;
+    if (n === 0) return '';
+    const pct = Math.round(n / total * 100);
+    const barW= Math.round(n / maxCount * 100);
+    const col = LEVEL_COLORS[lv] || LEVEL_COLORS[''];
+    // short label
+    const shortLv = lv.match(/^(L\d)/)?.[1] || lv;
+    return '<div class="lvl-dist-row">'
+      + '<div class="lvl-dist-label" style="color:' + col.text + ';">' + lv + '</div>'
+      + '<div class="lvl-dist-bar-wrap">'
+      +   '<div class="lvl-dist-bar-fill" style="width:' + barW + '%;background:' + col.bar + ';"></div>'
+      + '</div>'
+      + '<div class="lvl-dist-count">' + n + '</div>'
+      + '<div class="lvl-dist-pct">' + pct + '%</div>'
+      + '</div>';
+  }).join('');
+
+  // Also build team breakdown as chips
+  const byTeam = {};
+  memberData.forEach(m => {
+    const cr = COMP_RECORDS[m.id] || {};
+    const lv = cr.level || '';
+    const key = levels.find(l => lv.startsWith(l.split(' ')[0])) || 'Unassigned';
+    const team = m.team || 'Unknown';
+    if (!byTeam[team]) byTeam[team] = {};
+    byTeam[team][key] = (byTeam[team][key] || 0) + 1;
+  });
+
+  const teamRows = Object.entries(byTeam).sort((a,b)=>a[0].localeCompare(b[0])).map(([team, lvMap]) => {
+    const chips = levels.filter(l => lvMap[l]).map(l => {
+      const col = LEVEL_COLORS[l] || LEVEL_COLORS[''];
+      const shortL = l.match(/^(L\d)/)?.[1] || l;
+      return '<span class="lvl-pill" style="background:' + col.bg + ';color:' + col.text + ';border:1px solid ' + col.border + ';">' + shortL + ' ×' + lvMap[l] + '</span>';
+    }).join('');
+    return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">'
+      + '<span style="font-size:9px;font-weight:700;color:var(--med-gray);font-family:var(--font-ui);width:140px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(team) + '</span>'
+      + '<div class="lvl-dist-chips">' + chips + '</div>'
+      + '</div>';
+  }).join('');
+
+  return '<div class="lvl-dist-panel">'
+    + '<div class="lvl-dist-title">📊 Level Distribution <span style="font-size:10px;font-weight:600;color:var(--med-gray);">· ' + memberData.length + ' employees</span></div>'
+    + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px;">'
+    +   '<div>'
+    +     '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--med-gray);font-family:var(--font-ui);margin-bottom:8px;">By Level</div>'
+    +     rows
+    +   '</div>'
+    +   '<div>'
+    +     '<div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--med-gray);font-family:var(--font-ui);margin-bottom:8px;">By Team</div>'
+    +     teamRows
+    +   '</div>'
+    + '</div>'
+    + '</div>';
+}
+
 function buildMemberTree(rootId, allMemberData) {
   const node = allMemberData.find(m => m.id === rootId);
   if (!node) return null;
@@ -4055,10 +4159,25 @@ function renderOrgNode(node, depth) {
 
   const detailPanel = (isCardExpanded && node.canRate) ? renderOrgDetailPanel(node) : '';
 
+  const levels5 = ['L5 — Director+','L4 — Lead / Manager','L3 — Senior','L2 — Mid','L1 — Junior'];
+  const childLevelPills = hasChildren && !isCollapsed ? (() => {
+    const cmap = {};
+    node.children.forEach(c => {
+      const lv = (COMP_RECORDS[c.id] || {}).level || '';
+      const key = levels5.find(l => lv.startsWith(l.split(' ')[0])) || 'Other';
+      cmap[key] = (cmap[key] || 0) + 1;
+    });
+    return levels5.filter(l => cmap[l]).map(l => {
+      const col = LEVEL_COLORS[l] || LEVEL_COLORS[''];
+      const sh  = l.match(/^(L\d)/)?.[1] || l;
+      return '<span class="lvl-pill" style="background:' + col.bg + ';color:' + col.text + ';border:1px solid ' + col.border + ';">' + sh + ' ×' + cmap[l] + '</span>';
+    }).join('');
+  })() : '';
   const expandBtn = hasChildren
-    ? `<button class="org-expand-btn" onclick="toggleOrgNode('${node.id}')">
-         ${isCollapsed ? '▶' : '▼'} ${node.children.length} ${node.children.length === 1 ? 'report' : 'reports'}
-       </button>`
+    ? '<button class="org-expand-btn" onclick="toggleOrgNode(\'' + node.id + '\')">'
+      + (isCollapsed ? '▶' : '▼') + ' ' + node.children.length + ' ' + (node.children.length === 1 ? 'report' : 'reports')
+      + '</button>'
+      + (childLevelPills ? '<div class="org-reports-dist">' + childLevelPills + '</div>' : '')
     : '';
 
   const connectorAndChildren = (hasChildren && !isCollapsed)
@@ -5847,6 +5966,7 @@ function renderOrgChartPage() {
         <h2 style="font-family:var(--font);font-size:20px;font-weight:800;color:var(--dark-gray);margin:0 0 4px;">Org Chart</h2>
         <p style="font-size:12px;color:var(--med-gray);font-family:var(--font-ui);margin:0;">Full organisation view — Q1 2026</p>
       </div>
+      ${renderLevelDistPanel(memberData)}
       ${renderOrgChart(memberData)}
     </div>`;
 }
