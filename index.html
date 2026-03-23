@@ -6051,20 +6051,16 @@ function renderAdminCompSettings() {
   if (!el) return;
   el.innerHTML = `
     <div style="border:1px solid var(--pale-gray);border-radius:16px;overflow:hidden;box-shadow:0 2px 14px rgba(0,0,0,.06);">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 20px;background:linear-gradient(135deg,#F5FAF2,var(--bg-cream2));border-bottom:\${compSettingsOpenFlag?'1px solid var(--pale-gray)':'none'};cursor:pointer;" onclick="toggleCompSettingsNew()">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:11px 20px;background:linear-gradient(135deg,#F5FAF2,var(--bg-cream2));border-bottom:${compSettingsOpenFlag ? '1px solid var(--pale-gray)' : 'none'};cursor:pointer;" onclick="toggleCompSettingsNew()">
         <div style="display:flex;align-items:center;gap:8px;">
           <span style="font-size:13px;font-weight:800;color:var(--dark-gray);">⚙️ Comp Settings</span>
           <span style="font-size:10px;color:var(--med-gray);font-family:var(--font-ui);">· Budget &amp; Salary Bands</span>
         </div>
         <button onclick="event.stopPropagation();toggleCompSettingsNew()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;border:1px solid var(--pale-gray);background:#fff;font-size:10px;font-weight:700;color:var(--med-gray);cursor:pointer;font-family:var(--font-ui);transition:var(--transition);">
-          \${compSettingsOpenFlag ? '▲ Collapse' : '▼ Expand'}
+          ${compSettingsOpenFlag ? '▲ Collapse' : '▼ Expand'}
         </button>
       </div>
-      \${compSettingsOpenFlag ? `
-      <div id="comp-settings-inner" style="padding:16px;display:flex;flex-direction:column;gap:16px;">
-        <div id="admin-budget-inner"></div>
-        <div id="admin-bands-inner"></div>
-      </div>` : ''}
+      ${compSettingsOpenFlag ? '<div id="comp-settings-inner" style="padding:16px;display:flex;flex-direction:column;gap:16px;"><div id="admin-budget-inner"></div><div id="admin-bands-inner"></div></div>' : ''}
     </div>`;
   if (compSettingsOpenFlag) {
     renderAdminBudget();
