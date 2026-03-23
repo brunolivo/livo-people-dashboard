@@ -1504,7 +1504,7 @@
     /* ── Login Screen ─────────────────────────────────────────── */
     #login-screen {
       position: fixed; inset: 0; z-index: 9999;
-      display: none; align-items: center; justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       background: linear-gradient(145deg, #EDF4F0 0%, #F5F9F6 40%, #EAF2EE 100%);
       font-family: var(--font);
     }
@@ -1576,7 +1576,7 @@
     <div class="login-divider"></div>
     <div style="width:100%;margin-bottom:4px;">
       <div class="login-label">Work Email</div>
-      <input id="login-email" class="login-input" type="email" placeholder="name@getlivo.com"
+      <input id="login-email" class="login-input" type="email" placeholder="name@getlivo.com" value="bruno@getlivo.com"
              onkeydown="if(event.key==='Enter')document.getElementById('login-pw').focus()">
       <div class="login-label">Password</div>
       <input id="login-pw" class="login-input" type="password" placeholder="••••••••"
@@ -1588,7 +1588,7 @@
       <div class="login-error" id="login-error">Incorrect email or password. Please try again.</div>
       <div class="login-forgot"><a onclick="showForgotPassword()">Forgot your password?</a></div>
       <div class="login-hint">Building the Future of Healthcare</div>
-      <div class="login-demo-hint">Try <span onclick="document.getElementById('login-email').value='carlos@getlivo.com'">carlos@getlivo.com</span> or click Sign In directly</div>
+      <div class="login-demo-hint">Sign in with your Livo credentials</div>
     </div>
     <!-- Reset Password view (hidden by default) -->
     <div id="reset-view" style="display:none; width:100%;">
@@ -2290,11 +2290,24 @@ function doPasswordReset() {
   document.getElementById('reset-form-wrap').style.display = 'none';
   document.getElementById('reset-success').style.display   = '';
 }
-function doLogin() {
+async function doLogin() {
   const email  = (document.getElementById('login-email').value || '').trim().toLowerCase();
-  // Match by email or fall back to Carlos — always enters the dashboard
+  const pw     = document.getElementById('login-pw').value || '';
+  const errEl  = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  // Authenticate via Supabase Auth
+  if (supa) {
+    const { error } = await supa.auth.signInWithPassword({ email, password: pw });
+    if (error) {
+      errEl.textContent = 'Incorrect email or password. Please try again.';
+      errEl.style.display = '';
+      return;
+    }
+  }
+
+  // Match team member by email
   const member = TEAM_MEMBERS.find(m => m.email && m.email.toLowerCase() === email) || TEAM_MEMBERS[0];
-  // Hide screen first — nothing blocks entry
   document.getElementById('login-screen').style.display = 'none';
   currentUserId = member.id;
   permissions   = getPermissions(currentUserId);
@@ -2304,9 +2317,10 @@ function doLogin() {
 
 function doLogout() {
   if (confirm('Sign out of Livo People?')) {
+    if (supa) supa.auth.signOut();
     document.getElementById('app-shell').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('login-email').value = '';
+    document.getElementById('login-email').value = 'bruno@getlivo.com';
     document.getElementById('login-pw').value = '';
     document.getElementById('login-error').style.display = 'none';
     showLoginForm();
@@ -3497,7 +3511,7 @@ let compHistory = [
 //   SUPABASE — Persistent backend
 // ═══════════════════════════════════════════════════════════════
 const SUPA_URL = 'https://ootiwjtpwxibhgzdomgm.supabase.co';
-const SUPA_KEY = 'sb_publishable_QF6ATlTjCFouX2eQb3UAGw_Q5j0oL2a';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vdGl3anRwd3hpYmhnemRvbWdtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNzk4MDMsImV4cCI6MjA4OTg1NTgwM30.wnHkRNVHzSI8S7YRXTPhMTeUZNSFkC7eIEKMp9EUNhA';
 let supa = null;
 try { supa = window.supabase?.createClient(SUPA_URL, SUPA_KEY) || null; } catch(e) {}
 
@@ -7621,6 +7635,22 @@ function submitOkrProposalMy() {
    INIT
 ═══════════════════════════════════════════════════════════════ */
 (async () => {
+  // Check for an existing Supabase session — skip login if already authenticated
+  if (supa) {
+    const { data: { session } } = await supa.auth.getSession();
+    if (session) {
+      const email = (session.user.email || '').toLowerCase();
+      const member = TEAM_MEMBERS.find(m => m.email && m.email.toLowerCase() === email);
+      if (member) { currentUserId = member.id; permissions = getPermissions(currentUserId); }
+      document.getElementById('login-screen').style.display = 'none';
+    }
+    // Listen for auth state changes (login / logout)
+    supa.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        document.getElementById('login-screen').style.display = 'flex';
+      }
+    });
+  }
   await loadFromSupabase();
   populateIdentitySelect();
   updateIdentity(currentUserId);
