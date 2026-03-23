@@ -1556,7 +1556,7 @@ export default function Q1PerformanceCycle() {
     }
     .login-hint span { color: var(--deep-teal); font-weight: 700; cursor: pointer; }
     .login-hint span:hover { text-decoration: underline; }
-    .login-forgot { width:100%; text-align:right; margin-top:-10px; margin-bottom:16px; }
+    .login-forgot { width:100%; text-align:center; margin-top:10px; margin-bottom:4px; }
     .login-forgot a { font-size:12px; color:var(--deep-teal); font-family:var(--font-ui); font-weight:500; cursor:pointer; text-decoration:none; opacity:.8; }
     .login-forgot a:hover { opacity:1; text-decoration:underline; }
     .login-back { font-size:12px; color:var(--med-gray); font-family:var(--font-ui); text-align:center; margin-top:14px; cursor:pointer; }
