@@ -1819,7 +1819,7 @@ const ROLE_ASSIGNMENTS = {
   'tm-adnane':   'manager',
   'tm-jose':     'manager',
   'tm-cristina': 'manager',
-  'tm-bruno':    'manager',
+  'tm-bruno':    'super_admin',
   'tm-aitor':    'manager',
   'tm-ruben-g':  'manager',
   'tm-brian':    'manager',
@@ -2163,9 +2163,9 @@ let nextKudosId = 3;
 /* ═══════════════════════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════════════════════ */
-let currentUserId  = 'tm-aitor';
+let currentUserId  = 'tm-bruno';
 let roleAssignments = { ...ROLE_ASSIGNMENTS };
-let permissions    = getPermissions('tm-aitor');
+let permissions    = getPermissions('tm-bruno');
 let editMode       = false;
 let areaEditMode   = false;
 let collapsed      = {};
