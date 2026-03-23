@@ -1509,7 +1509,7 @@ export default function Q1PerformanceCycle() {
     /* ── Login Screen ─────────────────────────────────────────── */
     #login-screen {
       position: fixed; inset: 0; z-index: 9999;
-      display: flex; align-items: center; justify-content: center;
+      display: none; align-items: center; justify-content: center;
       background: linear-gradient(145deg, #EDF4F0 0%, #F5F9F6 40%, #EAF2EE 100%);
       font-family: var(--font);
     }
@@ -2299,7 +2299,7 @@ function doLogin() {
 function doLogout() {
   if (confirm('Sign out of Livo People?')) {
     document.getElementById('app-shell').style.display = 'none';
-    document.getElementById('login-screen').style.display = '';
+    document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('login-email').value = '';
     document.getElementById('login-pw').value = '';
     document.getElementById('login-error').style.display = 'none';
@@ -7484,8 +7484,7 @@ updateIdentity(currentUserId);
 renderTimeline();
 renderView();
 renderQuarterPicker();
-// Skip login — go straight to OKR dashboard
-document.getElementById('login-screen').style.display = 'none';
+// Open directly on OKR dashboard
 switchTab('okrs');
 </script>
 </body>
