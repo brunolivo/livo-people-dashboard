@@ -1559,12 +1559,16 @@
     .login-demo-hint span { color:var(--deep-teal); font-weight:700; cursor:pointer; }
     .login-demo-hint span:hover { text-decoration:underline; }
     .login-back:hover { color:var(--deep-teal); text-decoration:underline; }
+    /* Bulk upload/download toast */
+    #bulk-toast { opacity: 0; transition: opacity .3s ease; }
+
     .reset-success { display:none; text-align:center; padding:18px 0 8px; }
     .reset-success-icon { font-size:38px; margin-bottom:10px; }
     .reset-success-title { font-size:15px; font-weight:700; color:var(--dark-gray); font-family:var(--font); margin-bottom:6px; }
     .reset-success-sub { font-size:12px; color:var(--med-gray); font-family:var(--font-ui); line-height:1.5; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 
 <body>
@@ -6099,9 +6103,17 @@ function renderAdminTable() {
           <span style="font-size:13px;font-weight:800;color:var(--dark-gray);">👥 Team Members &amp; Compensation</span>
           <span style="font-size:10px;color:var(--med-gray);font-family:var(--font-ui);">· ${filtered.length} shown</span>
         </div>
-        <button onclick="toggleAdminTable()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;border:1px solid var(--pale-gray);background:#fff;font-size:10px;font-weight:700;color:var(--med-gray);cursor:pointer;font-family:var(--font-ui);transition:var(--transition);">
-          ${adminTableOpen ? '▲ Collapse' : '▼ Expand'}
-        </button>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button onclick="downloadBulkCSV()" title="Download CSV" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:20px;border:1px solid var(--pale-gray);background:#fff;font-size:10px;font-weight:700;color:var(--deep-teal);cursor:pointer;font-family:var(--font-ui);transition:var(--transition);" onmouseover="this.style.background='#F0FAF5'" onmouseout="this.style.background='#fff'">⬇ CSV</button>
+          <button onclick="downloadBulkXLS()" title="Download Excel" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:20px;border:1px solid var(--pale-gray);background:#fff;font-size:10px;font-weight:700;color:#1D6F42;cursor:pointer;font-family:var(--font-ui);transition:var(--transition);" onmouseover="this.style.background='#F0FAF5'" onmouseout="this.style.background='#fff'">⬇ XLS</button>
+          <label title="Upload CSV or Excel to bulk-update compensation data" style="display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:20px;border:1.5px solid var(--deep-teal);background:#fff;font-size:10px;font-weight:700;color:var(--deep-teal);cursor:pointer;font-family:var(--font-ui);transition:var(--transition);" onmouseover="this.style.background='#EBF7F2'" onmouseout="this.style.background='#fff'">
+            ⬆ Upload
+            <input type="file" accept=".csv,.xlsx,.xls" onchange="handleBulkUpload(this)" style="display:none;">
+          </label>
+          <button onclick="toggleAdminTable()" style="display:inline-flex;align-items:center;gap:4px;padding:5px 12px;border-radius:20px;border:1px solid var(--pale-gray);background:#fff;font-size:10px;font-weight:700;color:var(--med-gray);cursor:pointer;font-family:var(--font-ui);transition:var(--transition);">
+            ${adminTableOpen ? '▲ Collapse' : '▼ Expand'}
+          </button>
+        </div>
       </div>
       ${adminTableOpen ? `
       <div style="overflow-x:auto;">
@@ -6115,6 +6127,233 @@ function renderAdminTable() {
       <div style="padding:8px 16px;font-size:10px;color:var(--med-gray);background:#fff;">💡 All comp edits log automatically to History.</div>
       ` : ''}
     </div>`;
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+//  BULK UPLOAD / DOWNLOAD — Team Members & Compensation
+// ═══════════════════════════════════════════════════════════════
+
+const BULK_COLUMNS = [
+  { key: 'fullName',      label: 'Full Name',      source: 'member',  readonly: true  },
+  { key: 'email',         label: 'Email',          source: 'member',  readonly: false },
+  { key: 'position',      label: 'Title',          source: 'member',  readonly: false },
+  { key: 'team',          label: 'Area',           source: 'member',  readonly: false },
+  { key: 'level',         label: 'Level',          source: 'comp',    readonly: false },
+  { key: 'track',         label: 'Track',          source: 'comp',    readonly: false },
+  { key: 'salary',        label: 'Annual Salary',  source: 'comp',    readonly: false },
+  { key: 'targetBonus',   label: 'Variable',       source: 'comp',    readonly: false },
+  { key: 'cobee',         label: 'Cobee',          source: 'comp',    readonly: false },
+  { key: 'esopShares',    label: 'ESOP Shares',    source: 'comp',    readonly: false },
+  { key: 'esopSharePrice',label: 'Price/Share',    source: 'comp',    readonly: false },
+  { key: 'perfRating',    label: 'Perf Rating',    source: 'comp',    readonly: false },
+];
+
+function getBulkRows() {
+  return TEAM_MEMBERS.map(m => {
+    const cr = COMP_RECORDS[m.id] || {};
+    return {
+      id:             m.id,
+      fullName:       m.fullName,
+      email:          m.email || '',
+      position:       m.position || '',
+      team:           m.team || '',
+      level:          cr.level || '',
+      track:          cr.track || '',
+      salary:         cr.salary || 0,
+      targetBonus:    cr.targetBonus || 0,
+      cobee:          cr.cobee || 0,
+      esopShares:     cr.esopShares || 0,
+      esopSharePrice: cr.esopSharePrice || esopSharePrice,
+      perfRating:     cr.perfRating || 'unrated',
+    };
+  });
+}
+
+function downloadBulkCSV() {
+  const rows = getBulkRows();
+  const headers = BULK_COLUMNS.map(c => c.label);
+  const lines = [headers.join(',')];
+  rows.forEach(r => {
+    const vals = BULK_COLUMNS.map(c => {
+      const v = String(r[c.key] ?? '');
+      return v.includes(',') || v.includes('"') || v.includes('\n')
+        ? '"' + v.replace(/"/g, '""') + '"'
+        : v;
+    });
+    lines.push(vals.join(','));
+  });
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = 'livo-people-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showBulkToast('CSV downloaded — ' + rows.length + ' employees', 'success');
+}
+
+function downloadBulkXLS() {
+  if (typeof XLSX === 'undefined') { showBulkToast('XLS library not loaded yet — try again in a moment.', 'error'); return; }
+  const rows    = getBulkRows();
+  const headers = BULK_COLUMNS.map(c => c.label);
+  const sheetData = [headers];
+  rows.forEach(r => sheetData.push(BULK_COLUMNS.map(c => r[c.key] ?? '')));
+  const ws = XLSX.utils.aoa_to_sheet(sheetData);
+  // Column widths
+  ws['!cols'] = BULK_COLUMNS.map((c,i) => ({ wch: [20,28,24,20,22,24,14,10,8,10,10,14][i] || 16 }));
+  // Bold header row
+  headers.forEach((_,i) => {
+    const ref = XLSX.utils.encode_cell({ r:0, c:i });
+    if (ws[ref]) ws[ref].s = { font: { bold: true }, fill: { fgColor: { rgb: 'EDF4F0' } } };
+  });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Team & Comp');
+  XLSX.writeFile(wb, 'livo-people-' + new Date().toISOString().slice(0,10) + '.xlsx');
+  showBulkToast('Excel downloaded — ' + rows.length + ' employees', 'success');
+}
+
+function handleBulkUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = '';  // reset so same file can be re-uploaded
+  const reader = new FileReader();
+  const isCSV  = file.name.toLowerCase().endsWith('.csv');
+
+  reader.onload = function(e) {
+    try {
+      let rows = [];
+      if (isCSV) {
+        rows = parseBulkCSV(e.target.result);
+      } else {
+        if (typeof XLSX === 'undefined') { showBulkToast('XLS library not loaded yet — try again.', 'error'); return; }
+        const wb  = XLSX.read(e.target.result, { type: 'array' });
+        const ws  = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        if (raw.length < 2) { showBulkToast('File appears empty.', 'error'); return; }
+        const headers = raw[0].map(h => String(h).trim());
+        rows = raw.slice(1).map(row => {
+          const obj = {};
+          headers.forEach((h, i) => { obj[h] = String(row[i] ?? '').trim(); });
+          return obj;
+        });
+      }
+
+      if (!rows.length) { showBulkToast('No data rows found in file.', 'error'); return; }
+
+      // Map column labels → keys
+      const labelToKey = {};
+      BULK_COLUMNS.forEach(c => { labelToKey[c.label.toLowerCase()] = c; });
+
+      let updated = 0, skipped = 0, errors = [];
+
+      rows.forEach((row, ri) => {
+        // Find member by Full Name (required) or Email
+        const nameVal  = (row['Full Name'] || row['full name'] || row['fullName'] || '').trim();
+        const emailVal = (row['Email'] || row['email'] || '').trim().toLowerCase();
+        const member   = TEAM_MEMBERS.find(m =>
+          (nameVal  && m.fullName.toLowerCase() === nameVal.toLowerCase()) ||
+          (emailVal && m.email && m.email.toLowerCase() === emailVal)
+        );
+        if (!member) {
+          if (nameVal || emailVal) errors.push('Row ' + (ri+2) + ': "' + (nameVal||emailVal) + '" not found — skipped');
+          skipped++;
+          return;
+        }
+
+        // Apply each writable column
+        BULK_COLUMNS.forEach(col => {
+          if (col.readonly) return;
+          const rawVal = row[col.label] ?? row[col.label.toLowerCase()] ?? row[col.key] ?? '';
+          const val    = String(rawVal).trim();
+          if (val === '') return;
+
+          if (col.source === 'member') {
+            if (col.key === 'email')    updateMemberEmail(member.id, val);
+            else if (col.key === 'position') updateCompMemberField(member.id, 'position', val, 'Title');
+            else if (col.key === 'team')     updateCompMemberField(member.id, 'team', val, 'Area');
+          } else {
+            // comp field
+            const numericKeys = ['salary','targetBonus','cobee','esopShares','esopSharePrice'];
+            const numVal = numericKeys.includes(col.key) ? (parseFloat(val.replace(/[^0-9.-]/g,'')) || 0) : null;
+            if (numVal !== null) updateCompField(member.id, col.key, numVal, col.label);
+            else                 updateCompField(member.id, col.key, val,    col.label);
+          }
+        });
+        updated++;
+      });
+
+      // Re-render
+      renderAdminTable();
+
+      // Toast summary
+      let msg = updated + ' employee' + (updated !== 1 ? 's' : '') + ' updated';
+      if (skipped)        msg += ', ' + skipped + ' skipped';
+      if (errors.length)  msg += '\n⚠ ' + errors.slice(0,3).join('\n');
+      showBulkToast(msg, errors.length ? 'warn' : 'success');
+
+    } catch(err) {
+      showBulkToast('Upload failed: ' + err.message, 'error');
+    }
+  };
+
+  if (isCSV) reader.readAsText(file, 'UTF-8');
+  else       reader.readAsArrayBuffer(file);
+}
+
+function parseBulkCSV(text) {
+  const lines  = text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  if (!lines.length) return [];
+  const headers = parseBulkCSVRow(lines[0]);
+  const rows    = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const vals = parseBulkCSVRow(line);
+    const obj  = {};
+    headers.forEach((h, idx) => { obj[h] = vals[idx] || ''; });
+    rows.push(obj);
+  }
+  return rows;
+}
+
+function parseBulkCSVRow(line) {
+  const result = [];
+  let cur = '', inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuote && line[i+1] === '"') { cur += '"'; i++; }
+      else inQuote = !inQuote;
+    } else if (ch === ',' && !inQuote) {
+      result.push(cur.trim()); cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+// ── Toast notification ──────────────────────────────────────────
+function showBulkToast(msg, type) {
+  let toast = document.getElementById('bulk-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'bulk-toast';
+    toast.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:99999;min-width:260px;max-width:520px;padding:12px 20px;border-radius:14px;font-size:12px;font-weight:700;font-family:var(--font-ui);box-shadow:0 6px 32px rgba(0,0,0,.18);white-space:pre-line;text-align:center;transition:opacity .3s;pointer-events:none;';
+    document.body.appendChild(toast);
+  }
+  const styles = {
+    success: 'background:#103355;color:#fff;',
+    warn:    'background:#92400E;color:#FEF3C7;',
+    error:   'background:#7F1D1D;color:#FEE2E2;',
+  };
+  toast.style.cssText += styles[type] || styles.success;
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 4000);
 }
 
 function filterAdminTable() {
