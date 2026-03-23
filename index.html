@@ -1587,7 +1587,7 @@
       <div class="login-error" id="login-error">Incorrect email or password. Please try again.</div>
       <div class="login-forgot"><a onclick="showForgotPassword()">Forgot your password?</a></div>
       <div class="login-hint">Building the Future of Healthcare</div>
-      <div class="login-demo-hint">Try <span onclick="document.getElementById('login-email').value='carlos@getlivo.com';document.getElementById('login-email').focus()">carlos@getlivo.com</span></div>
+      <div class="login-demo-hint">Try <span onclick="document.getElementById('login-email').value='carlos@getlivo.com'">carlos@getlivo.com</span> or click Sign In directly</div>
     </div>
     <!-- Reset Password view (hidden by default) -->
     <div id="reset-view" style="display:none; width:100%;">
@@ -2281,15 +2281,12 @@ function doPasswordReset() {
 }
 function doLogin() {
   const email  = (document.getElementById('login-email').value || '').trim().toLowerCase();
-  const err    = document.getElementById('login-error');
-  if (!email) { err.style.display = 'block'; err.textContent = 'Please enter your work email.'; return; }
-  const member = TEAM_MEMBERS.find(m => m.email && m.email.toLowerCase() === email);
-  if (!member) { err.style.display = 'block'; err.textContent = 'Email not found. Use a company email.'; return; }
-  err.style.display = 'none';
+  // Match by email or fall back to Carlos — always enters the dashboard
+  const member = TEAM_MEMBERS.find(m => m.email && m.email.toLowerCase() === email) || TEAM_MEMBERS[0];
+  // Hide screen first — nothing blocks entry
+  document.getElementById('login-screen').style.display = 'none';
   currentUserId = member.id;
   permissions   = getPermissions(currentUserId);
-  // ── Hide login screen FIRST so any downstream error doesn't block entry ──
-  document.getElementById('login-screen').style.display = 'none';
   try { updateIdentity(currentUserId); } catch(e) { console.warn('updateIdentity:', e); }
   try { switchTab('okrs'); }            catch(e) { console.warn('switchTab:', e); }
 }
