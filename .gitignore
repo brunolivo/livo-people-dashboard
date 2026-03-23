@@ -2,3 +2,4 @@
 *.webloc
 node_modules/
 .env
+.vercel
