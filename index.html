@@ -1576,7 +1576,7 @@
     <div class="login-divider"></div>
     <div style="width:100%;margin-bottom:4px;">
       <div class="login-label">Work Email</div>
-      <input id="login-email" class="login-input" type="email" placeholder="name@getlivo.com" value="bruno@getlivo.com"
+      <input id="login-email" class="login-input" type="email" placeholder="name@getlivo.com"
              onkeydown="if(event.key==='Enter')document.getElementById('login-pw').focus()">
       <div class="login-label">Password</div>
       <input id="login-pw" class="login-input" type="password" placeholder="••••••••"
@@ -1588,7 +1588,7 @@
       <div class="login-error" id="login-error">Incorrect email or password. Please try again.</div>
       <div class="login-forgot"><a onclick="showForgotPassword()">Forgot your password?</a></div>
       <div class="login-hint">Building the Future of Healthcare</div>
-      <div class="login-demo-hint">Sign in with your Livo credentials</div>
+      <div class="login-demo-hint">Use your @getlivo.com email and password</div>
     </div>
     <!-- Reset Password view (hidden by default) -->
     <div id="reset-view" style="display:none; width:100%;">
@@ -2400,7 +2400,7 @@ function doLogout() {
     if (supa) supa.auth.signOut();
     document.getElementById('app-shell').style.display = 'none';
     document.getElementById('login-screen').style.display = 'flex';
-    document.getElementById('login-email').value = 'bruno@getlivo.com';
+    document.getElementById('login-email').value = '';
     document.getElementById('login-pw').value = '';
     document.getElementById('login-error').style.display = 'none';
     showLoginForm();
