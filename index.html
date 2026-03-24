@@ -520,7 +520,7 @@
     .field       { display: flex; flex-direction: column; gap: 4px; }
     .field-row   { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     label        { font-size: 10px; font-weight: 600; color: var(--med-gray); letter-spacing: .08em; text-transform: uppercase; font-family: var(--font-ui); }
-    input[type="text"],
+    input[type="text"]:not([id^="name-input-"]),
     input[type="number"],
     textarea.field-input,
     select.field-select {
@@ -6872,12 +6872,18 @@ function buildCompPeopleRows(searchVal) {
       </div>` : '';
     return `<div class="comp-people-wrapper">
       <div class="comp-people-row">
-        <div class="admin-member">
-          <div class="admin-avatar" style="background:${ptColor.bg};color:${ptColor.text};border:2px solid ${ptColor.border};width:30px;height:30px;font-size:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${esc(m.firstName[0])}</div>
-          <div style="min-width:0;">
-            <div style="font-size:12px;font-weight:700;color:var(--dark-gray);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--font);letter-spacing:-0.2px;">${esc(m.fullName)}</div>
-
-            <button class="comp-hist-toggle-btn${memberHist.length?' has-entries':''}" onclick="toggleCompPeopleHistory('${m.id}')">📋 ${memberHist.length} ${histOpen?'▲':'▼'}</button>
+        <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
+          <div id="avatar-${m.id}" style="background:${ptColor.bg};color:${ptColor.text};border:2px solid ${ptColor.border};width:30px;height:30px;min-width:30px;font-size:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;margin-top:3px;">${esc(m.firstName[0]||'?')}</div>
+          <div style="flex:1;min-width:0;">
+            <input id="name-input-${m.id}" type="text"
+              value="${esc(m.fullName)}"
+              placeholder="Full name…"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+              onclick="event.stopPropagation()"
+              onfocus="this.style.borderColor='#104455';this.style.boxShadow='0 0 0 3px rgba(16,68,85,.15)';this.style.background='#fff';"
+              onblur="this.style.borderColor='#94a3b8';this.style.boxShadow='none';this.style.background='#f8fafc';updateMemberName('${m.id}',this.value);"
+              style="width:100%;box-sizing:border-box;font-size:12px;font-weight:700;color:#1e293b;font-family:inherit;padding:4px 8px;border:1.5px solid #94a3b8;border-radius:7px;background:#f8fafc;outline:none;display:block;cursor:text;">
+            <button class="comp-hist-toggle-btn${memberHist.length?' has-entries':''}" style="margin-top:3px;" onclick="toggleCompPeopleHistory('${m.id}')">📋 ${memberHist.length} ${histOpen?'▲':'▼'}</button>
           </div>
         </div>
         <input class="comp-text-input" type="text" value="${esc(m.position)}" placeholder="Title…" onchange="updateCompMemberField('${m.id}','position',this.value,'Title')" onclick="event.stopPropagation()">
