@@ -745,9 +745,9 @@
     .admin-member-pos  { font-size: 10px; color: var(--med-gray); margin-top: 1px; }
     .admin-email-input { font-size: 11px; color: var(--dark-gray); border: 1.5px solid var(--pale-gray); border-radius: 8px; padding: 4px 10px; background: var(--bg-cream2); outline: none; width: 100%; min-width: 0; font-family: var(--font-ui); box-sizing: border-box; }
     .admin-email-input:focus { border-color: var(--livo-green); background: #fff; }
-    .admin-name-input { width:100%; font-size:12px; font-weight:700; color:var(--dark-gray); font-family:var(--font); letter-spacing:-0.2px; border:1.5px solid var(--pale-gray); border-radius:8px; background:var(--bg-cream2); outline:none; padding:3px 8px; cursor:text; box-sizing:border-box; transition:border-color .15s, background .15s; }
-    .admin-name-input:hover { border-color:#94A3B8; background:#fff; }
-    .admin-name-input:focus { border-color:var(--deep-teal); background:#fff; box-shadow:0 0 0 3px rgba(16,68,85,.08); }
+    .admin-name-input { flex:1; min-width:0; font-size:12px; font-weight:700; color:var(--dark-gray); font-family:var(--font); letter-spacing:-0.2px; border:1.5px solid #CBD5E1; border-radius:8px; background:#F8FAFC; outline:none; padding:4px 8px; cursor:text; box-sizing:border-box; transition:border-color .15s, background .15s, box-shadow .15s; }
+    .admin-name-input:hover { border-color:var(--deep-teal); background:#fff; }
+    .admin-name-input:focus { border-color:var(--deep-teal); background:#fff; box-shadow:0 0 0 3px rgba(16,68,85,.12); }
     .admin-team-badge  {
       font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
       background: var(--soft-lime); color: var(--deep-teal);
@@ -6397,16 +6397,19 @@ function renderAdminTable() {
       <div class="admin-unified-row${isCurrent ? ' admin-row-current' : ''}">
         <!-- 1. Employee -->
         <div class="admin-member">
-          <div class="admin-avatar" id="avatar-${m.id}" style="background:${ptColor.bg};color:${ptColor.text};border:2px solid ${ptColor.border};width:30px;height:30px;font-size:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;flex-shrink:0;">${esc(m.firstName[0]||'?')}</div>
+          <div class="admin-avatar" id="avatar-${m.id}" style="background:${ptColor.bg};color:${ptColor.text};border:2px solid ${ptColor.border};width:30px;height:30px;font-size:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${esc(m.firstName[0]||'?')}</div>
           <div style="min-width:0;flex:1;">
-            <input class="admin-name-input" type="text" value="${esc(m.fullName)}"
-              placeholder="Full name…"
-              onchange="updateMemberName('${m.id}',this.value)"
-              onclick="event.stopPropagation()">
-            ${isCurrent ? '<span style="font-size:9px;opacity:.6;font-family:var(--font-ui);">(you)</span>' : ''}
-            <div style="margin-top:1px;">
-              <button class="comp-hist-toggle-btn${memberHist.length?' has-entries':''}" onclick="toggleCompPeopleHistory('${m.id}')">📋 ${memberHist.length} ${histOpen?'▲':'▼'}</button>
+            <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
+              <input class="admin-name-input" id="name-input-${m.id}" type="text"
+                value="${esc(m.fullName)}"
+                placeholder="Type full name…"
+                onblur="updateMemberName('${m.id}',this.value)"
+                onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}if(event.key==='Escape'){this.value='${esc(m.fullName)}';this.blur();}"
+                onclick="event.stopPropagation()">
+              <button onclick="event.stopPropagation();updateMemberName('${m.id}',document.getElementById('name-input-${m.id}').value)" title="Save name" style="flex-shrink:0;width:20px;height:20px;border-radius:5px;border:none;background:var(--deep-teal);color:#fff;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">✓</button>
             </div>
+            ${isCurrent ? '<span style="font-size:9px;opacity:.6;font-family:var(--font-ui);">(you)</span>' : ''}
+            <button class="comp-hist-toggle-btn${memberHist.length?' has-entries':''}" onclick="toggleCompPeopleHistory('${m.id}')">📋 ${memberHist.length} ${histOpen?'▲':'▼'}</button>
           </div>
         </div>
         <!-- 2. Email -->
@@ -7341,22 +7344,25 @@ function updateMemberEmail(id, val) {
 function updateMemberName(id, newFullName) {
   const m = TEAM_MEMBERS.find(x => x.id === id);
   if (!m) return;
-  const trimmed = newFullName.trim();
+  const trimmed = (newFullName || '').trim();
   if (!trimmed || trimmed === m.fullName) return;
-  const oldName  = m.fullName;
-  const parts    = trimmed.split(/\s+/);
-  m.fullName     = trimmed;
-  m.firstName    = parts[0] || trimmed;
-  // Update avatar initial live
+  const oldName = m.fullName;
+  const parts   = trimmed.split(/\s+/);
+  m.fullName    = trimmed;
+  m.firstName   = parts[0] || trimmed;
+  // Update avatar initial live (no re-render needed)
   const avatarEl = document.getElementById('avatar-' + id);
   if (avatarEl) avatarEl.textContent = m.firstName[0] || '?';
+  // Keep input value in sync
+  const inputEl = document.getElementById('name-input-' + id);
+  if (inputEl) inputEl.value = trimmed;
   // Persist to Supabase
   supaSync('team_members', { id, full_name:m.fullName, first_name:m.firstName, email:m.email||'', team:m.team||'', position:m.position||'', supervisor_id:m.supervisorId||null });
   // Log history
   const _entry = { id:'ch-'+Date.now(), memberId:id, ts:new Date().toISOString().slice(0,10), type:'field_edit', field:'Full Name', oldVal:oldName, newVal:trimmed, note:'', changedBy:currentUserId };
   compHistory.unshift(_entry);
   supaSync('comp_history', { id:_entry.id, member_id:id, ts:_entry.ts, type:_entry.type, field:_entry.field, old_val:_entry.oldVal, new_val:_entry.newVal, note:'', changed_by:currentUserId });
-  showToast('Name updated → ' + trimmed);
+  showToast('✓ Name saved: ' + trimmed);
 }
 
 function updateMemberSupervisor(id, supervisorId) {
