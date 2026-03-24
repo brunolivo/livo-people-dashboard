@@ -745,9 +745,9 @@
     .admin-member-pos  { font-size: 10px; color: var(--med-gray); margin-top: 1px; }
     .admin-email-input { font-size: 11px; color: var(--dark-gray); border: 1.5px solid var(--pale-gray); border-radius: 8px; padding: 4px 10px; background: var(--bg-cream2); outline: none; width: 100%; min-width: 0; font-family: var(--font-ui); box-sizing: border-box; }
     .admin-email-input:focus { border-color: var(--livo-green); background: #fff; }
-    .admin-name-input { flex:1; min-width:0; font-size:12px; font-weight:700; color:var(--dark-gray); font-family:var(--font); letter-spacing:-0.2px; border:1.5px solid #CBD5E1; border-radius:8px; background:#F8FAFC; outline:none; padding:4px 8px; cursor:text; box-sizing:border-box; transition:border-color .15s, background .15s, box-shadow .15s; }
-    .admin-name-input:hover { border-color:var(--deep-teal); background:#fff; }
-    .admin-name-input:focus { border-color:var(--deep-teal); background:#fff; box-shadow:0 0 0 3px rgba(16,68,85,.12); }
+    /* Admin table name input — inline styles take priority, this is a fallback */
+    .admin-name-input { width:100% !important; box-sizing:border-box !important; font-size:12px !important; font-weight:700 !important; color:#1e293b !important; padding:4px 8px !important; border:1.5px solid #94a3b8 !important; border-radius:7px !important; background:#f8fafc !important; outline:none !important; display:block !important; cursor:text !important; }
+    .admin-name-input:focus { border-color:#104455 !important; box-shadow:0 0 0 3px rgba(16,68,85,.15) !important; background:#fff !important; }
     .admin-team-badge  {
       font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
       background: var(--soft-lime); color: var(--deep-teal);
@@ -6396,20 +6396,19 @@ function renderAdminTable() {
     return `<div class="comp-people-wrapper">
       <div class="admin-unified-row${isCurrent ? ' admin-row-current' : ''}">
         <!-- 1. Employee -->
-        <div class="admin-member">
-          <div class="admin-avatar" id="avatar-${m.id}" style="background:${ptColor.bg};color:${ptColor.text};border:2px solid ${ptColor.border};width:30px;height:30px;font-size:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${esc(m.firstName[0]||'?')}</div>
-          <div style="min-width:0;flex:1;">
-            <div style="display:flex;align-items:center;gap:4px;margin-bottom:2px;">
-              <input class="admin-name-input" id="name-input-${m.id}" type="text"
-                value="${esc(m.fullName)}"
-                placeholder="Type full name…"
-                onblur="updateMemberName('${m.id}',this.value)"
-                onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}if(event.key==='Escape'){this.value='${esc(m.fullName)}';this.blur();}"
-                onclick="event.stopPropagation()">
-              <button onclick="event.stopPropagation();updateMemberName('${m.id}',document.getElementById('name-input-${m.id}').value)" title="Save name" style="flex-shrink:0;width:20px;height:20px;border-radius:5px;border:none;background:var(--deep-teal);color:#fff;font-size:11px;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">✓</button>
-            </div>
-            ${isCurrent ? '<span style="font-size:9px;opacity:.6;font-family:var(--font-ui);">(you)</span>' : ''}
-            <button class="comp-hist-toggle-btn${memberHist.length?' has-entries':''}" onclick="toggleCompPeopleHistory('${m.id}')">📋 ${memberHist.length} ${histOpen?'▲':'▼'}</button>
+        <div style="display:flex;align-items:flex-start;gap:8px;min-width:0;">
+          <div id="avatar-${m.id}" style="background:${ptColor.bg};color:${ptColor.text};border:2px solid ${ptColor.border};width:30px;height:30px;min-width:30px;font-size:12px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;margin-top:2px;">${esc(m.firstName[0]||'?')}</div>
+          <div style="flex:1;min-width:0;">
+            <input id="name-input-${m.id}" type="text"
+              value="${esc(m.fullName)}"
+              placeholder="Full name…"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"
+              onclick="event.stopPropagation()"
+              onblur="this.style.borderColor='#94a3b8';this.style.boxShadow='none';this.style.background='#f8fafc';updateMemberName('${m.id}',this.value);"
+              onfocus="this.style.borderColor='#104455';this.style.boxShadow='0 0 0 3px rgba(16,68,85,.15)';this.style.background='#fff';"
+              style="width:100%;box-sizing:border-box;font-size:12px;font-weight:700;color:#1e293b;font-family:inherit;padding:4px 8px;border:1.5px solid #94a3b8;border-radius:7px;background:#f8fafc;outline:none;display:block;cursor:text;transition:border-color .15s,box-shadow .15s;">
+            ${isCurrent ? '<span style="font-size:9px;opacity:.5;">(you)</span>' : ''}
+            <button class="comp-hist-toggle-btn${memberHist.length?' has-entries':''}" style="margin-top:3px;" onclick="toggleCompPeopleHistory('${m.id}')">📋 ${memberHist.length} ${histOpen?'▲':'▼'}</button>
           </div>
         </div>
         <!-- 2. Email -->
