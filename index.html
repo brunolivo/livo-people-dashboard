@@ -5295,7 +5295,7 @@ function saveAddCompHistory(memberId) {
   // Map field labels → COMP_RECORDS keys + types
   const FIELD_MAP = {
     'Annual Salary':  { key:'salary',         num:true  },
-    'Variable €':     { key:'targetBonus',     num:true  },
+    'Variable %':     { key:'targetBonus',     num:true  },
     'Cobee €/mo':     { key:'cobee',           num:true  },
     'ESOP Shares':    { key:'esopShares',      num:true  },
     'Price/Share':    { key:'esopSharePrice',  num:true  },
@@ -6046,7 +6046,7 @@ function renderCompPage() {
       </div>
       <div class="comp-people-table">
         <div class="comp-people-header">
-          <span>Employee</span><span>Title</span><span>Area</span><span>Supervisor</span><span>Band Range</span><span>Annual Salary</span><span>Variable €</span><span>Cobee</span><span>ESOP #</span><span>Price/Share</span><span>ESOP Value</span><span style="color:var(--deep-teal);">OTE</span><span>Perf Rating</span>
+          <span>Employee</span><span>Title</span><span>Area</span><span>Supervisor</span><span>Band Range</span><span>Annual Salary</span><span>Variable %</span><span>Cobee</span><span>ESOP #</span><span>Price/Share</span><span>ESOP Value</span><span style="color:var(--deep-teal);">OTE</span><span>Perf Rating</span>
         </div>
         ${peopleRows || '<div style="text-align:center;padding:20px;color:var(--med-gray);">No employees found</div>'}
       </div>
@@ -6280,6 +6280,32 @@ function renderAdminStats() {
   }).join('');
 }
 
+/* ─── OTE helpers ─────────────────────────────────────────── */
+function calcOTE(cr, globalSharePrice) {
+  const sal  = cr.salary        || 0;
+  const pct  = cr.targetBonus   || 0;   // stored as %
+  const cob  = cr.cobee         || 0;
+  const esop = cr.esopShares    || 0;
+  const sp   = cr.esopSharePrice != null ? (cr.esopSharePrice || 0) : (globalSharePrice || 0);
+  const total = sal + sal * pct / 100 + cob * 12 + esop * sp;
+  return '€' + Math.round(total).toLocaleString('de-DE');
+}
+
+function liveOTE(memberId) {
+  // Read all ote-input fields for this member and update OTE cell(s) without re-render
+  const inputs = document.querySelectorAll('.ote-input[data-ote-id="' + memberId + '"]');
+  const vals = {};
+  inputs.forEach(el => { vals[el.dataset.oteField] = parseFloat(el.value) || 0; });
+  const cr = Object.assign({}, COMP_RECORDS[memberId] || {}, vals);
+  const result = calcOTE(cr, esopSharePrice);
+  const hint   = 'incl. ' + (vals.targetBonus != null ? vals.targetBonus : (cr.targetBonus||0)) + '% bonus';
+  ['ote-' + memberId, 'ote-comp-' + memberId].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = result; const next = el.nextElementSibling; if (next) next.textContent = hint; }
+  });
+}
+/* ─────────────────────────────────────────────────────────── */
+
 function renderAdminTable() {
   const container = document.getElementById('admin-table-container');
   if (!container) return;
@@ -6417,18 +6443,19 @@ function renderAdminTable() {
         <!-- 9. Band Range -->
         <span style="font-size:10px;font-weight:600;color:var(--deep-teal);background:rgba(16,68,85,.07);border-radius:6px;padding:2px 6px;white-space:nowrap;">${bandLabel}</span>
         <!-- 7. Annual Salary -->
-        <div class="comp-currency-wrap"><span class="comp-currency-prefix">€</span><input class="comp-num-input" type="number" min="0" step="500" value="${cr.salary||0}" onchange="updateCompField('${m.id}','salary',this.value,'Annual Salary')" title="Annual gross salary"></div>
-        <!-- 7. Variable € -->
-        <div class="comp-currency-wrap"><span class="comp-currency-prefix">€</span><input class="comp-num-input" type="number" min="0" step="100" value="${cr.targetBonus||0}" onchange="updateCompField('${m.id}','targetBonus',this.value,'Variable Bonus €')" title="Variable bonus in €"></div>
-        <!-- 8. Cobee -->
-        <input class="comp-num-input" type="number" min="0" value="${cr.cobee||0}" onchange="updateCompField('${m.id}','cobee',this.value,'Cobee €/mo')" title="Cobee €/month">
-        <!-- 9. ESOP # -->
-        <input class="comp-num-input" type="number" min="0" value="${cr.esopShares||0}" onchange="updateCompField('${m.id}','esopShares',this.value,'ESOP Shares')" title="ESOP shares">
-        <!-- 10. Price/Share -->
-        <div class="comp-currency-wrap"><span class="comp-currency-prefix">€</span><input class="comp-num-input" type="number" min="0" step="0.01" value="${(cr.esopSharePrice||esopSharePrice).toFixed(2)}" onchange="updateCompField('${m.id}','esopSharePrice',parseFloat(this.value)||esopSharePrice,'Share Price')" title="€ per share"></div>
-        <!-- 11. OTE -->
+        <div class="comp-currency-wrap"><span class="comp-currency-prefix">€</span><input class="comp-num-input ote-input" data-ote-id="${m.id}" data-ote-field="salary" type="number" min="0" step="500" value="${cr.salary||0}" oninput="liveOTE('${m.id}')" onchange="updateCompField('${m.id}','salary',this.value,'Annual Salary')" title="Annual gross salary"></div>
+        <!-- 8. Variable % (stored as %, shown as %) -->
+        <div class="comp-currency-wrap"><span class="comp-currency-prefix">%</span><input class="comp-num-input ote-input" data-ote-id="${m.id}" data-ote-field="targetBonus" type="number" min="0" max="100" step="1" value="${cr.targetBonus||0}" oninput="liveOTE('${m.id}')" onchange="updateCompField('${m.id}','targetBonus',this.value,'Variable Bonus %')" title="Variable bonus as % of annual salary"></div>
+        <!-- 9. Cobee -->
+        <input class="comp-num-input ote-input" data-ote-id="${m.id}" data-ote-field="cobee" type="number" min="0" value="${cr.cobee||0}" oninput="liveOTE('${m.id}')" onchange="updateCompField('${m.id}','cobee',this.value,'Cobee €/mo')" title="Cobee €/month">
+        <!-- 10. ESOP # -->
+        <input class="comp-num-input ote-input" data-ote-id="${m.id}" data-ote-field="esopShares" type="number" min="0" value="${cr.esopShares||0}" oninput="liveOTE('${m.id}')" onchange="updateCompField('${m.id}','esopShares',this.value,'ESOP Shares')" title="ESOP shares">
+        <!-- 11. Price/Share -->
+        <div class="comp-currency-wrap"><span class="comp-currency-prefix">€</span><input class="comp-num-input ote-input" data-ote-id="${m.id}" data-ote-field="esopSharePrice" type="number" min="0" step="0.01" value="${(cr.esopSharePrice||esopSharePrice).toFixed(2)}" oninput="liveOTE('${m.id}')" onchange="updateCompField('${m.id}','esopSharePrice',parseFloat(this.value)||esopSharePrice,'Share Price')" title="€ per share"></div>
+        <!-- 12. OTE — live-calculated -->
         <div style="text-align:right;padding-right:4px;">
-          <div style="font-size:12px;font-weight:800;color:var(--deep-teal);font-family:var(--font-ui);">€${((cr.salary||0)+(cr.targetBonus||0)+(cr.cobee||0)*12+(cr.esopShares||0)*(cr.esopSharePrice||esopSharePrice)).toLocaleString('de-DE',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+          <div id="ote-${m.id}" style="font-size:12px;font-weight:800;color:var(--deep-teal);font-family:var(--font-ui);">${calcOTE(cr, esopSharePrice)}</div>
+          <div style="font-size:8px;color:var(--med-gray);font-family:var(--font-ui);margin-top:1px;">incl. ${cr.targetBonus||0}% bonus</div>
         </div>
         <!-- 12. Perf Rating -->
         <div style="display:flex;flex-direction:column;gap:3px;">
@@ -6469,7 +6496,7 @@ function renderAdminTable() {
       <div style="overflow-x:auto;">
         <div style="min-width:1660px;">
           <div class="admin-unified-header">
-            <span>Employee</span><span>Email</span><span>Role</span><span>Title</span><span>Area</span><span>Manager</span><span>Level</span><span>Contract</span><span>Band Range</span><span>Annual Salary</span><span>Variable €</span><span>Cobee</span><span>ESOP #</span><span>Price/Share</span><span>OTE</span><span>Perf Rating</span><span style="text-align:center;" title="Key Position">🔑</span><span></span>
+            <span>Employee</span><span>Email</span><span>Role</span><span>Title</span><span>Area</span><span>Manager</span><span>Level</span><span>Contract</span><span>Band Range</span><span>Annual Salary</span><span>Variable %</span><span>Cobee</span><span>ESOP #</span><span>Price/Share</span><span>OTE</span><span>Perf Rating</span><span style="text-align:center;" title="Key Position">🔑</span><span></span>
           </div>
           ${unifiedRows || '<div style="text-align:center;padding:20px;color:var(--med-gray);">No employees found</div>'}
         </div>
@@ -6856,14 +6883,15 @@ function buildCompPeopleRows(searchVal) {
         <select class="comp-select-sm" onchange="updateCompMemberField('${m.id}','supervisorId',this.value,'Supervisor')"><option value="">— none —</option>${supervisorOptions(m.id)}</select>
 
         <span style="font-size:10px;font-weight:600;color:var(--deep-teal);background:rgba(16,68,85,.07);border-radius:6px;padding:2px 6px;white-space:nowrap;">${bandLabel}</span>
-        <div class="comp-currency-wrap"><span class="comp-currency-prefix">€</span><input class="comp-num-input" type="number" min="0" step="500" value="${cr.salary||0}" onchange="updateCompField('${m.id}','salary',this.value,'Annual Salary')" title="Annual gross salary"></div>
-        <div class="comp-currency-wrap"><span class="comp-currency-prefix">€</span><input class="comp-num-input" type="number" min="0" step="100" value="${cr.targetBonus||0}" onchange="updateCompField('${m.id}','targetBonus',this.value,'Variable Bonus €')" title="Variable bonus in €"></div>
-        <input class="comp-num-input" type="number" min="0" value="${cr.cobee||0}" onchange="updateCompField('${m.id}','cobee',this.value,'Cobee €/mo')" title="Cobee €/month">
-        <input class="comp-num-input" type="number" min="0" value="${cr.esopShares||0}" onchange="updateCompField('${m.id}','esopShares',this.value,'ESOP Shares')" title="ESOP shares">
-        <div class="comp-currency-wrap"><span class="comp-currency-prefix">€</span><input class="comp-num-input" type="number" min="0" step="0.01" value="${(cr.esopSharePrice||esopSharePrice).toFixed(2)}" onchange="updateCompField('${m.id}','esopSharePrice',parseFloat(this.value)||esopSharePrice,'Share Price')" title="€ per share"></div>
-        <div style="font-size:11px;font-weight:700;color:var(--deep-teal);font-family:var(--font-ui);text-align:right;padding-right:4px;">€${((cr.esopShares||0)*(cr.esopSharePrice||esopSharePrice)).toLocaleString('de-DE',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+        <div class="comp-currency-wrap"><span class="comp-currency-prefix">€</span><input class="comp-num-input ote-input" data-ote-id="${m.id}" data-ote-field="salary" type="number" min="0" step="500" value="${cr.salary||0}" oninput="liveOTE('${m.id}')" onchange="updateCompField('${m.id}','salary',this.value,'Annual Salary')" title="Annual gross salary"></div>
+        <div class="comp-currency-wrap"><span class="comp-currency-prefix">%</span><input class="comp-num-input ote-input" data-ote-id="${m.id}" data-ote-field="targetBonus" type="number" min="0" max="100" step="1" value="${cr.targetBonus||0}" oninput="liveOTE('${m.id}')" onchange="updateCompField('${m.id}','targetBonus',this.value,'Variable Bonus %')" title="Variable bonus as % of annual salary"></div>
+        <input class="comp-num-input ote-input" data-ote-id="${m.id}" data-ote-field="cobee" type="number" min="0" value="${cr.cobee||0}" oninput="liveOTE('${m.id}')" onchange="updateCompField('${m.id}','cobee',this.value,'Cobee €/mo')" title="Cobee €/month">
+        <input class="comp-num-input ote-input" data-ote-id="${m.id}" data-ote-field="esopShares" type="number" min="0" value="${cr.esopShares||0}" oninput="liveOTE('${m.id}')" onchange="updateCompField('${m.id}','esopShares',this.value,'ESOP Shares')" title="ESOP shares">
+        <div class="comp-currency-wrap"><span class="comp-currency-prefix">€</span><input class="comp-num-input ote-input" data-ote-id="${m.id}" data-ote-field="esopSharePrice" type="number" min="0" step="0.01" value="${(cr.esopSharePrice||esopSharePrice).toFixed(2)}" oninput="liveOTE('${m.id}')" onchange="updateCompField('${m.id}','esopSharePrice',parseFloat(this.value)||esopSharePrice,'Share Price')" title="€ per share"></div>
+        <div style="font-size:11px;font-weight:700;color:var(--deep-teal);font-family:var(--font-ui);text-align:right;padding-right:4px;">€${Math.round((cr.esopShares||0)*(cr.esopSharePrice||esopSharePrice)).toLocaleString('de-DE')}</div>
         <div style="text-align:right;padding-right:4px;">
-          <div style="font-size:12px;font-weight:800;color:var(--deep-teal);font-family:var(--font-ui);">€${((cr.salary||0)+(cr.targetBonus||0)+(cr.cobee||0)*12+(cr.esopShares||0)*(cr.esopSharePrice||esopSharePrice)).toLocaleString('de-DE',{minimumFractionDigits:0,maximumFractionDigits:0})}</div>
+          <div id="ote-comp-${m.id}" style="font-size:12px;font-weight:800;color:var(--deep-teal);font-family:var(--font-ui);">${calcOTE(cr, esopSharePrice)}</div>
+          <div style="font-size:8px;color:var(--med-gray);font-family:var(--font-ui);margin-top:1px;">incl. ${cr.targetBonus||0}% bonus</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:3px;">
           <select class="comp-select-sm" onchange="updateCompField('${m.id}','perfRating',this.value,'Perf Rating')">${perfOptions.map(p=>`<option value="${esc(p.value)}"${p.value===effectiveRating?' selected':''}>${esc(p.label)}</option>`).join('')}</select>
