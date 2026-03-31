@@ -2289,8 +2289,8 @@ function doLogin() {
   const email  = (document.getElementById('login-email').value || '').trim().toLowerCase();
   // Match by email or fall back to Carlos — always enters the dashboard
   const member = TEAM_MEMBERS.find(m => m.email && m.email.toLowerCase() === email) || TEAM_MEMBERS[0];
-  // Hide screen first — nothing blocks entry
-  document.getElementById('login-screen').style.display = 'none';
+  // Redirect to the People Hub (intranet home) after login
+  window.location.href = 'https://livo-hub.vercel.app';
   currentUserId = member.id;
   permissions   = getPermissions(currentUserId);
   try { updateIdentity(currentUserId); } catch(e) { console.warn('updateIdentity:', e); }
